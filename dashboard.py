@@ -54,6 +54,13 @@ if __name__ == '__main__':
 
     st.text('Final Score: ' + str(total_score))
 
+    send = st.form_submit_button(label="Submit")
+
+    if send:
+        with open('testfile.txt', 'w') as f:
+            f.write('Final Score: ' + str(total_score))
+
+
     
 # # st.header('Layout option 1: ')
 # col1, col2, col3 = st.columns([5, 1, 1])
