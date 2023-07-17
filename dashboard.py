@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     st.text('Final Score: ' + str(total_score))
 
-    send = st.form_submit_button(label="Submit")
+    send = st.button("Submit")
 
     if send:
         with open('testfile.txt', 'w') as f:
