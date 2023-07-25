@@ -36,69 +36,23 @@ def riskDriver(subvariables, number):
                 score = float(overwrite)
 
 
-    return score
-
-
-# def write_data(sheets_url):
-    # csv_url = sheets_url.replace("/edit#gid=", "/export?format=csv&gid=")
-    # sht2 = gc.open_by_url(sheets_url)
-    # sht2.update('B1', 'Bingo!')
-
-
-    # existing_data = pd.read_csv(csv_url)
-    # with open(csv_url, 'a') as outfile:
-    #     outfile.write('hoi')
-
+    return score    
     
-
-def run_query(query):
-    rows = conn.execute(query, headers=1)
-    rows = rows.fetchall()
-    return rows
 
 if __name__ == '__main__':
 
-    # print(' hoi')
-    # gc = gspread.service_account()
-    # print(gc)
-
-    # # Create a connection object.
-    # credentials = service_account.Credentials.from_service_account_info(
-    #     st.secrets["gcp_service_account"],
-    #     scopes=[
-    #         "https://www.googleapis.com/auth/spreadsheets",
-    #     ],
-    # )
-    # conn = connect(credentials=credentials)
-
-
-    # sheet_url = st.secrets["sheet_url"]
-    # rows = run_query(f'SELECT * FROM "{sheet_url}"')
-
-    # # Print results.
-    # for row in rows:
-    #     st.write(f"{row.name} has a :{row.pet}:")
-
-    # # Obtain link to google sheet
-    sheets_url = st.secrets["sheet_url"]
-
-
-    # Set up the scope and credentials
+    # Set up the scope and credentials to Google Sheet
     credentials = service_account.Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
         scopes=[
             "https://www.googleapis.com/auth/spreadsheets",
         ],
     )
-    # scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    # credentials = ServiceAccountCredentials.from_json_keyfile_name('path/to/your/credentials.json', scope)
+ 
+    # Open Google Sheet by its url
     client = gspread.authorize(credentials)
-
-    # sheet_title = 'TestSheet'
+    sheets_url = st.secrets["sheet_url"]
     sh = client.open_by_url(sheets_url)
-
-    print(sh.sheet1.get('A2'))
-
 
     # RD 1
     number = 1
@@ -110,13 +64,15 @@ if __name__ == '__main__':
     subvariables = 3
     score_2 = riskDriver(subvariables, number)
 
-
+    # Determine risk score
     total_score = (score_1 + score_2)/2
-    sh.sheet1.append_row([total_score])
 
     st.text('Final Score: ' + str(total_score))
 
     send = st.button("Submit")
+    if send:    
+        sh.sheet1.append_row([total_score])
+
 
     # TODO save as dataframe/csv
     # dataframe = pd.DataFrame()
