@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 # import matplotlib.pyplot as plt
 
-
+import gspread
 
 
 
@@ -38,15 +38,22 @@ def riskDriver(subvariables, number):
 
 
 def write_data(sheets_url):
-    csv_url = sheets_url.replace("/edit#gid=", "/export?format=csv&gid=")
+    # csv_url = sheets_url.replace("/edit#gid=", "/export?format=csv&gid=")
+    sht2 = gc.open_by_url(sheets_url)
+    sht2.update('B1', 'Bingo!')
+
+
     # existing_data = pd.read_csv(csv_url)
-    with open(csv_url, 'a') as outfile:
-        outfile.write('hoi')
+    # with open(csv_url, 'a') as outfile:
+    #     outfile.write('hoi')
 
     
     
 
 if __name__ == '__main__':
+
+    gc = gspread.service_account()
+
 
     # Obtain link to google sheet
     sheets_url = st.secrets["sheet_url"]
