@@ -87,8 +87,8 @@ if __name__ == '__main__':
 
     send = st.button("Submit")
     if send:    
-        sh.sheet1.append_row([inv_total_score])
         st.success('Risk score submitted!')
+        sh.sheet1.append_row([inv_total_score])
 
 
     
