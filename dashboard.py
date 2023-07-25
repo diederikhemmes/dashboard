@@ -1,7 +1,7 @@
 import streamlit as st
 # import plotly.express as px 
 # import plotly.graph_objects as go
-# import pandas as pd
+import pandas as pd
 # import matplotlib.pyplot as plt
 
 
@@ -37,7 +37,19 @@ def riskDriver(subvariables, number):
     return score
 
 
+def write_data(sheets_url):
+    csv_url = sheets_url.replace("/edit#gid=", "/export?format=csv&gid=")
+    # existing_data = pd.read_csv(csv_url)
+    with open(csv_url, 'a') as outfile:
+        outfile.write('hoi')
+
+    
+    
+
 if __name__ == '__main__':
+
+    # Obtain link to google sheet
+    sheets_url = st.secrets["sheet_url"]
 
     # RD 1
     number = 1
@@ -56,9 +68,15 @@ if __name__ == '__main__':
 
     send = st.button("Submit")
 
+    # TODO save as dataframe/csv
+    # dataframe = pd.DataFrame()
+
     if send:
-        with open('testfile.txt', 'w') as f:
-            f.write('Final Score: ' + str(total_score))
+        write_data(sheets_url) 
+
+    # if send:
+    #     with open('testfile.txt', 'w') as f:
+    #         f.write('Final Score: ' + str(total_score))
 
 
     
