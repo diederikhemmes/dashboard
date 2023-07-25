@@ -36,7 +36,7 @@ def riskDriver(subvariables, number):
                 score = float(overwrite)
 
 
-    return score    
+    return score / subvariables
     
 
 if __name__ == '__main__':
@@ -64,25 +64,16 @@ if __name__ == '__main__':
     subvariables = 3
     score_2 = riskDriver(subvariables, number)
 
-    # Determine risk score
-    total_score = (score_1 + score_2)/2
+    # Normalize risk score based on amount of risk drivers
+    number_of_RiskDrivers = 2
+    total_score = (score_1 + score_2)/number_of_RiskDrivers
+    inv_total_score = 1/total_score
 
-    st.text('Final Score: ' + str(total_score))
+    st.text('Final Score: ' + str(inv_total_score))
 
     send = st.button("Submit")
     if send:    
-        sh.sheet1.append_row([total_score])
-
-
-    # TODO save as dataframe/csv
-    # dataframe = pd.DataFrame()
-
-    # if send:
-    #     write_data(sheets_url) 
-
-    # if send:
-    #     with open('testfile.txt', 'w') as f:
-    #         f.write('Final Score: ' + str(total_score))
+        sh.sheet1.append_row([inv_total_score])
 
 
     
