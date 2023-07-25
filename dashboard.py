@@ -4,8 +4,9 @@ import streamlit as st
 import pandas as pd
 # import matplotlib.pyplot as plt
 
-import gspread
-
+# import gspread
+from google.oauth2 import service_account
+from gsheetsdb import connect
 
 
 
@@ -37,10 +38,10 @@ def riskDriver(subvariables, number):
     return score
 
 
-def write_data(sheets_url):
+# def write_data(sheets_url):
     # csv_url = sheets_url.replace("/edit#gid=", "/export?format=csv&gid=")
-    sht2 = gc.open_by_url(sheets_url)
-    sht2.update('B1', 'Bingo!')
+    # sht2 = gc.open_by_url(sheets_url)
+    # sht2.update('B1', 'Bingo!')
 
 
     # existing_data = pd.read_csv(csv_url)
@@ -48,14 +49,34 @@ def write_data(sheets_url):
     #     outfile.write('hoi')
 
     
-    
+
+def run_query(query):
+    rows = conn.execute(query, headers=1)
+    rows = rows.fetchall()
+    return rows
 
 if __name__ == '__main__':
 
-    print(' hoi')
-    gc = gspread.service_account()
-    print(gc)
+    # print(' hoi')
+    # gc = gspread.service_account()
+    # print(gc)
 
+    # Create a connection object.
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+        ],
+    )
+    conn = connect(credentials=credentials)
+
+
+    sheet_url = st.secrets["sheet_url"]
+    rows = run_query(f'SELECT * FROM "{sheet_url}"')
+
+    # Print results.
+    for row in rows:
+        st.write(f"{row.name} has a :{row.pet}:")
 
     # Obtain link to google sheet
     sheets_url = st.secrets["sheet_url"]
@@ -80,8 +101,8 @@ if __name__ == '__main__':
     # TODO save as dataframe/csv
     # dataframe = pd.DataFrame()
 
-    if send:
-        write_data(sheets_url) 
+    # if send:
+    #     write_data(sheets_url) 
 
     # if send:
     #     with open('testfile.txt', 'w') as f:
