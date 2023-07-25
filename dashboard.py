@@ -5,9 +5,7 @@ import pandas as pd
 # import matplotlib.pyplot as plt
 
 import gspread
-# from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
-# from gsheetsdb import connect
 
 
 
@@ -54,6 +52,20 @@ if __name__ == '__main__':
     sheets_url = st.secrets["sheet_url"]
     sh = client.open_by_url(sheets_url)
 
+    # Weights selection UI
+    st.header('Choose expert weights')
+    col1, col2, col3, col4 = st.columns([1,1,1,1])
+    with col1:
+        st.checkbox('Finance')
+    with col2:
+        st.checkbox('Risk')
+    with col3:
+        st.checkbox('Invest')
+    with col4:
+        st.checkbox('Bus Dev')
+
+    st.header('Score risk factors')
+
     # RD 1
     number = 1
     subvariables = 4
@@ -63,6 +75,8 @@ if __name__ == '__main__':
     number = 2
     subvariables = 3
     score_2 = riskDriver(subvariables, number)
+
+    st.header('Determine risk score')
 
     # Normalize risk score based on amount of risk drivers
     number_of_RiskDrivers = 2
@@ -74,6 +88,7 @@ if __name__ == '__main__':
     send = st.button("Submit")
     if send:    
         sh.sheet1.append_row([inv_total_score])
+        st.success('Risk score submitted!')
 
 
     
