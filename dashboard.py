@@ -99,7 +99,6 @@ if __name__ == '__main__':
 
     print(sh.sheet1.get('A2'))
 
-    sh.sheet1.append_row(['oi1', 'oi2', 'oi3'])
 
     # RD 1
     number = 1
@@ -113,6 +112,7 @@ if __name__ == '__main__':
 
 
     total_score = (score_1 + score_2)/2
+    sh.sheet1.append_row([total_score])
 
     st.text('Final Score: ' + str(total_score))
 
