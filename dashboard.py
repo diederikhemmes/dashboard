@@ -52,7 +52,9 @@ def write_data(sheets_url):
 
 if __name__ == '__main__':
 
+    print(' hoi')
     gc = gspread.service_account()
+    print(gc)
 
 
     # Obtain link to google sheet
