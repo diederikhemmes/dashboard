@@ -39,8 +39,6 @@ def riskDriver(subvariables, number):
 
 if __name__ == '__main__':
 
-    st.write('hoi')
-
     # Set up the scope and credentials to Google Sheet
     credentials = service_account.Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
