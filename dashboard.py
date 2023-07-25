@@ -4,9 +4,10 @@ import streamlit as st
 import pandas as pd
 # import matplotlib.pyplot as plt
 
-# import gspread
+import gspread
+# from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
-from gsheetsdb import connect
+# from gsheetsdb import connect
 
 
 
@@ -61,25 +62,44 @@ if __name__ == '__main__':
     # gc = gspread.service_account()
     # print(gc)
 
-    # Create a connection object.
+    # # Create a connection object.
+    # credentials = service_account.Credentials.from_service_account_info(
+    #     st.secrets["gcp_service_account"],
+    #     scopes=[
+    #         "https://www.googleapis.com/auth/spreadsheets",
+    #     ],
+    # )
+    # conn = connect(credentials=credentials)
+
+
+    # sheet_url = st.secrets["sheet_url"]
+    # rows = run_query(f'SELECT * FROM "{sheet_url}"')
+
+    # # Print results.
+    # for row in rows:
+    #     st.write(f"{row.name} has a :{row.pet}:")
+
+    # # Obtain link to google sheet
+    sheets_url = st.secrets["sheet_url"]
+
+
+    # Set up the scope and credentials
     credentials = service_account.Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
         scopes=[
             "https://www.googleapis.com/auth/spreadsheets",
         ],
     )
-    conn = connect(credentials=credentials)
+    # scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    # credentials = ServiceAccountCredentials.from_json_keyfile_name('path/to/your/credentials.json', scope)
+    client = gspread.authorize(credentials)
 
+    # sheet_title = 'TestSheet'
+    sh = client.open_by_url(sheets_url)
 
-    sheet_url = st.secrets["sheet_url"]
-    rows = run_query(f'SELECT * FROM "{sheet_url}"')
+    print(sh.sheet1.get('A2'))
 
-    # Print results.
-    for row in rows:
-        st.write(f"{row.name} has a :{row.pet}:")
-
-    # Obtain link to google sheet
-    sheets_url = st.secrets["sheet_url"]
+    sh.sheet1.append_row(['oi1', 'oi2', 'oi3'])
 
     # RD 1
     number = 1

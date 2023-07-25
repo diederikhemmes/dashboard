@@ -1,4 +1,4 @@
 
-# gspread==5.10.0
-gsheetsdb==0.1.13.1
-pyparsing==3.0.9
+gspread==5.10.0
+# gsheetsdb==0.1.13.1
+# pyparsing==3.0.9
