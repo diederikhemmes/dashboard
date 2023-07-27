@@ -1,7 +1,7 @@
 import streamlit as st
 # import plotly.express as px 
 # import plotly.graph_objects as go
-# import pandas as pd
+import pandas as pd
 # import matplotlib.pyplot as plt
 import datetime
 # import numpy as np
@@ -10,19 +10,21 @@ import gspread
 from google.oauth2 import service_account
 
 
-def riskDriver(subvariables, number):
+def riskDriver(riskdriver, variables, number):
 
     # Define column width
     col1, col2, col3 = st.columns([6, 1, 2])
+
+    subvariables = len(variables)
     
     # Create drop down with score per variable
     with col1:
-        with st.expander('Risk Driver ' + str(number)):
+        with st.expander('Risk Driver ' + str(number) + ': ' + riskdriver):
             subcols = st.columns(subvariables)
             inputs = [None]*subvariables
             for i in range(subvariables):
                 with subcols[i]:
-                    inputs[i] = float(st.number_input('variable '+str(i+1), value=1, min_value=1, max_value=4, key=str(number)+'_'+str(i)))
+                    inputs[i] = float(st.number_input('variable '+str(i+1) + ': ' + variables[i], value=1, min_value=1, max_value=4, key=str(number)+'_'+str(i)))
             score = sum(inputs)
 
     # Display score for risk driver based on score per varialbe
@@ -64,6 +66,34 @@ def convert_range(value):
 
     return scaled_value
 
+def apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, risk_driver, value):
+     # TODO misschien later in 1x applyen ipv per risk driver? 
+
+    selected_groups = []
+    if finance_weight:
+        selected_groups.append('Sub score Finance')
+    if risk_weight:
+        selected_groups.append('Sub score Risk')
+    if invest_weight:
+        selected_groups.append('Sub score Invest')
+    if busdev_weight:
+        selected_groups.append('Sub score Bus Dev')
+
+    # Calculate the average of the selected weights
+    selected_weights_df = weights_df[selected_groups]
+    weights_df['Average'] = selected_weights_df.mean(axis=1)
+
+    # st.dataframe(weights_df)
+
+    # obtain weight
+    weight = weights_df.loc[weights_df['Risk Factor'] == risk_driver, 'Average'].values[0]
+
+    st.text(weight)
+    weighted_value = value * weight
+
+    return weighted_value
+
+
 
 if __name__ == '__main__':
 
@@ -91,43 +121,53 @@ if __name__ == '__main__':
     st.header('Choose expert weights')
     col1, col2, col3, col4 = st.columns([1,1,1,1])
     with col1:
-        st.checkbox('Finance')
+        finance_weight = st.checkbox('Finance')
     with col2:
-        st.checkbox('Risk')
+        risk_weight = st.checkbox('Risk')
     with col3:
-        st.checkbox('Invest')
+        invest_weight = st.checkbox('Invest')
     with col4:
-        st.checkbox('Bus Dev')
+        busdev_weight = st.checkbox('Bus Dev')
+
+    # Read in expert weights file 
+    weights_df = pd.read_excel('Expert_weights.xlsx')
 
     st.header('Score risk factors')
 
     # RD 1
     # TODO denk dict van variables en dan hierover loopen (als t kan, moet variabelen hardcoden denk ik)
+    riskdriver_1 = 'Resource availability'
+    subvariables_1 = ['Dependency on Critical Raw Materials', 'Closest peak year of critical raw materials', 'Ownership/control over resources (natural hedge)', 'Type of relationship with value chain']
     number = 1
-    subvariables = 4
-    risk_1, inputs_1, score_1, overwrite_1 = riskDriver(subvariables, number)
+    risk_1, inputs_1, score_1, overwrite_1 = riskDriver(riskdriver_1, subvariables_1, number)
     row.extend(inputs_1)
     row.append(score_1)
     row.append(overwrite_1)
+    inversed_risk_1 = 1/risk_1
+    scaled_risk_1 = convert_range(inversed_risk_1)
+    weighted_risk_1 = apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, riskdriver_1, scaled_risk_1)
 
-    # RD 1
+    # RD 2
+    riskdriver_2 = 'Circularity of asset'
+    subvariables_2 = ['xx', 'yy', 'zz']
     number = 2
-    subvariables = 3
-    risk_2, inputs_2, score_2, overwrite_2 = riskDriver(subvariables, number)
+    risk_2, inputs_2, score_2, overwrite_2 = riskDriver(riskdriver_2, subvariables_2, number)
+    inversed_risk_2 = 1/risk_2
+    scaled_risk_2 = convert_range(inversed_risk_2)
+    weighted_risk_2 = apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, riskdriver_2, scaled_risk_2)
+
     # row.extend(inputs_2)
 
     st.header('Determine risk score')
 
     # Normalize risk score based on amount of risk drivers
     number_of_RiskDrivers = 2
-    total_score = (risk_1 + risk_2)/number_of_RiskDrivers
-    inv_total_score = 1/total_score
-    final_score = convert_range(inv_total_score)
+    final_score = (weighted_risk_1 + weighted_risk_2)/number_of_RiskDrivers
 
     # Display final score and insert to correct column
     st.text('Final Score: ' + str(final_score))
     row.insert(4, final_score)
-    st.text('hoi')
+
     # Submit data to google sheet
     send = st.button("Submit")
     if send:    
