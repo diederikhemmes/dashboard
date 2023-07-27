@@ -127,7 +127,7 @@ if __name__ == '__main__':
     # Display final score and insert to correct column
     st.text('Final Score: ' + str(final_score))
     row.insert(4, final_score)
-
+    st.text('hoi')
     # Submit data to google sheet
     send = st.button("Submit")
     if send:    
