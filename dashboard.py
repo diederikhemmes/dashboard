@@ -9,7 +9,6 @@ import datetime
 import gspread
 from google.oauth2 import service_account
 
-
 def riskDriver(riskdriver, variables, number):
 
     # Define column width
@@ -49,14 +48,7 @@ def riskDriver(riskdriver, variables, number):
 
     return score/subvariables, inputs, sum(inputs), overwrite
 
-def convert_range(value):
-    # Define the original range
-    min_original = 0.25
-    max_original = 1.0
-
-    # Define the new range
-    min_new = 0.0
-    max_new = 1.0
+def convert_range(value, min_original, max_original, min_new, max_new):
 
     # Calculate the range of the original values
     range_original = max_original - min_original
@@ -69,6 +61,7 @@ def convert_range(value):
 def apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, risk_driver, value):
      # TODO misschien later in 1x applyen ipv per risk driver? 
 
+    # Retrieve which weights are selected
     selected_groups = []
     if finance_weight:
         selected_groups.append('Sub score Finance')
@@ -85,10 +78,8 @@ def apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev
 
     # st.dataframe(weights_df)
 
-    # obtain weight
+    # Obtain and apply weight
     weight = weights_df.loc[weights_df['Risk Factor'] == risk_driver, 'Average'].values[0]
-
-    st.text(weight)
     weighted_value = value * weight
 
     return weighted_value
@@ -101,8 +92,10 @@ if __name__ == '__main__':
     user = st.text_input(label='Filled in by', placeholder='Your name/company', key='name_key')
     client_company = st.text_input(label='Filled in for', placeholder='Name/company for which to determine a risk score', key='client_key')
     date = datetime.datetime.now().date()
+    time = datetime.datetime.now().time().replace(microsecond=0)
     version = 'v0.1'
-    row = [str(date), version, user, client_company]
+    row = [str(date), str(time), version, user, client_company]
+    info_columns = len(row)
 
     # Set up the scope and credentials to Google Sheet
     credentials = service_account.Credentials.from_service_account_info(
@@ -121,16 +114,21 @@ if __name__ == '__main__':
     st.header('Choose expert weights')
     col1, col2, col3, col4 = st.columns([1,1,1,1])
     with col1:
-        finance_weight = st.checkbox('Finance')
+        finance_weight = st.checkbox('Finance', value=True)
     with col2:
-        risk_weight = st.checkbox('Risk')
+        risk_weight = st.checkbox('Risk', value=True)
     with col3:
-        invest_weight = st.checkbox('Invest')
+        invest_weight = st.checkbox('Invest', value=True)
     with col4:
-        busdev_weight = st.checkbox('Bus Dev')
+        busdev_weight = st.checkbox('Bus Dev', value=True)
+    if not any([finance_weight, risk_weight, invest_weight, busdev_weight]):
+        st.error('Please select at least one expert weight', icon="🚨")
 
     # Read in expert weights file 
     weights_df = pd.read_excel('Expert_weights.xlsx')
+
+    # Find maximum weight to use for normalization
+    max_weight = weights_df.iloc[:, 1:].max().max()
 
     st.header('Score risk factors')
 
@@ -144,7 +142,7 @@ if __name__ == '__main__':
     row.append(score_1)
     row.append(overwrite_1)
     inversed_risk_1 = 1/risk_1
-    scaled_risk_1 = convert_range(inversed_risk_1)
+    scaled_risk_1 = convert_range(inversed_risk_1, min_original=0.25, max_original=1.0, min_new=0.0, max_new=1.0)
     weighted_risk_1 = apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, riskdriver_1, scaled_risk_1)
 
     # RD 2
@@ -153,20 +151,19 @@ if __name__ == '__main__':
     number = 2
     risk_2, inputs_2, score_2, overwrite_2 = riskDriver(riskdriver_2, subvariables_2, number)
     inversed_risk_2 = 1/risk_2
-    scaled_risk_2 = convert_range(inversed_risk_2)
+    scaled_risk_2 = convert_range(inversed_risk_2, min_original=0.25, max_original=1.0, min_new=0.0, max_new=1.0)
     weighted_risk_2 = apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, riskdriver_2, scaled_risk_2)
-
-    # row.extend(inputs_2)
 
     st.header('Determine risk score')
 
     # Normalize risk score based on amount of risk drivers
     number_of_RiskDrivers = 2
     final_score = (weighted_risk_1 + weighted_risk_2)/number_of_RiskDrivers
+    normalized_final_score = convert_range(final_score, min_original=0, max_original=max_weight, min_new=0, max_new=100)
 
     # Display final score and insert to correct column
-    st.text('Final Score: ' + str(final_score))
-    row.insert(4, final_score)
+    st.text('Final Score: ' + str(normalized_final_score))
+    row.insert(info_columns, normalized_final_score)
 
     # Submit data to google sheet
     send = st.button("Submit")
