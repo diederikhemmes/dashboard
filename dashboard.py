@@ -5,6 +5,7 @@ import pandas as pd
 # import matplotlib.pyplot as plt
 import datetime
 # import numpy as np
+from streamlit import components
 
 import gspread
 from google.oauth2 import service_account
@@ -48,6 +49,66 @@ def riskDriver(riskdriver, variables, number):
 
     return score/subvariables, inputs, sum(inputs), overwrite
 
+def generate_help(options):
+
+    # TODO read out examples
+    examples = ['No diversity in Management Team on e.g. Ethnical background, Gender, Type of working experience (e.g. start-up, scale-up, corporate, institution) and Personality types (green/red/yellow/blue)', ' example 2', 'example 3', ' example 4']
+
+    help_string = 'These are examples of the answers: \n\n' 
+    for n, t in enumerate(options):
+        help_string += t
+        help_string += ': '
+        help_string += examples[n]
+        help_string += '\n\n'
+    
+    return help_string
+    
+
+def riskDriver2(riskdriver_groupby, riskdriver, number):
+    # Define column width
+    col1, col2, col3 = st.columns([6, 1, 2])
+
+    # Retrieve driver information from groupby object
+    subvariables = riskdriver_groupby['Variable'].unique().tolist()
+    overwrites = riskdriver_groupby['Overwrites'].unique().tolist()
+    overwrites.insert(0, 'No overwrite')
+
+    # Create drop down for riskdriver
+    with col1:
+        with st.expander('Risk Driver ' + str(number) + ': ' + riskdriver):
+            inputs = [None]*len(subvariables)
+
+            # Loop over variables
+            for i, sv in enumerate(subvariables):
+                options = riskdriver_groupby[riskdriver_groupby['Variable']==sv]['Answers'].tolist()
+                string = generate_help(options)
+                choice = st.selectbox(sv, options, help=string)
+
+                examples = ['example 1', ' example 2', 'example 3', ' example 4']
+                st.markdown(examples[options.index(choice)])
+
+                # Determine score for subvariable
+                sv_score = options.index(choice) + 1
+                sv_score_rel = sv_score / len(options)
+                inputs[i] = sv_score_rel
+
+            # Determince score for risk driver
+            score = sum(inputs)
+            score_rel = score / len(subvariables)
+
+    # Display score for risk driver based on score per varialbe
+    with col2:
+        st.text_input(label='score', value=score_rel, label_visibility='collapsed', disabled=True, key=str(number)+'col2')
+    
+    # Create input box for overwriting risk driver score
+    with col3:
+        overwrite = st.selectbox('Overwrite', overwrites, label_visibility='collapsed')
+        if overwrite is not 'No overwrite':
+            score = overwrites.index(overwrite) 
+
+    return score_rel, inputs, sum(inputs), overwrite
+
+
 def convert_range(value, min_original, max_original, min_new, max_new):
 
     # Calculate the range of the original values
@@ -57,6 +118,7 @@ def convert_range(value, min_original, max_original, min_new, max_new):
     scaled_value = (value - min_original) / range_original * (max_new - min_new) + min_new
 
     return scaled_value
+
 
 def apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, risk_driver, value):
      # TODO misschien later in 1x applyen ipv per risk driver? 
@@ -132,11 +194,23 @@ if __name__ == '__main__':
 
     st.header('Score risk factors')
 
+    # Read in risk driver file
+    drivers_df = pd.read_excel('RD_test.xlsx')
+    drivers_df = drivers_df.fillna(method='ffill', axis=0)
+    # st.dataframe(drivers)
+
+    # Create dropdown for each risk driver
+    n = 1
+    for name, rd in drivers_df.groupby('Risk Driver', sort=False):
+        riskDriver2(rd, name, n)
+        n += 1
+
     # RD 1
+    st.text('old:')
     # TODO denk dict van variables en dan hierover loopen (als t kan, moet variabelen hardcoden denk ik)
     riskdriver_1 = 'Resource availability'
     subvariables_1 = ['Dependency on Critical Raw Materials', 'Closest peak year of critical raw materials', 'Ownership/control over resources (natural hedge)', 'Type of relationship with value chain']
-    number = 1
+    number = n 
     risk_1, inputs_1, score_1, overwrite_1 = riskDriver(riskdriver_1, subvariables_1, number)
     row.extend(inputs_1)
     row.append(score_1)
@@ -148,7 +222,7 @@ if __name__ == '__main__':
     # RD 2
     riskdriver_2 = 'Circularity of asset'
     subvariables_2 = ['xx', 'yy', 'zz']
-    number = 2
+    number = n + 1
     risk_2, inputs_2, score_2, overwrite_2 = riskDriver(riskdriver_2, subvariables_2, number)
     inversed_risk_2 = 1/risk_2
     scaled_risk_2 = convert_range(inversed_risk_2, min_original=0.25, max_original=1.0, min_new=0.0, max_new=1.0)
