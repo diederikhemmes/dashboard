@@ -208,7 +208,7 @@ if __name__ == '__main__':
     # RD 1
     st.text('old:')
     # TODO denk dict van variables en dan hierover loopen (als t kan, moet variabelen hardcoden denk ik)
-    riskdriver_1 = 'Resource availability'
+    riskdriver_1 = 'Security of resources'
     subvariables_1 = ['Dependency on Critical Raw Materials', 'Closest peak year of critical raw materials', 'Ownership/control over resources (natural hedge)', 'Type of relationship with value chain']
     number = n 
     risk_1, inputs_1, score_1, overwrite_1 = riskDriver(riskdriver_1, subvariables_1, number)
