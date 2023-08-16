@@ -10,53 +10,12 @@ from streamlit import components
 import gspread
 from google.oauth2 import service_account
 
-def riskDriver(riskdriver, variables, number):
-
-    # Define column width
-    col1, col2, col3 = st.columns([6, 1, 2])
-
-    subvariables = len(variables)
-    
-    # Create drop down with score per variable
-    with col1:
-        with st.expander('Risk Driver ' + str(number) + ': ' + riskdriver):
-            subcols = st.columns(subvariables)
-            inputs = [None]*subvariables
-            for i in range(subvariables):
-                with subcols[i]:
-                    inputs[i] = float(st.number_input('variable '+str(i+1) + ': ' + variables[i], value=1, min_value=1, max_value=4, key=str(number)+'_'+str(i)))
-            score = sum(inputs)
-
-    # Display score for risk driver based on score per varialbe
-    with col2:
-        st.text_input(label='score', value=score, label_visibility='collapsed', disabled=True, key=str(number)+'col2')
-    
-    # Create input box for overwriting risk driver score
-    with col3:
-        overwrite = st.text_input(label='overwrite', placeholder='overwrite', label_visibility='collapsed', key=str(number)+'col3')
-        if overwrite:
-            # Check if input is numerical
-            if overwrite.strip().isdigit():
-                # Check if input is in the permitted range
-                if float(overwrite) < 1*subvariables or float(overwrite) > 4*subvariables:
-                    with col1:
-                        st.error('Overwrite should be between ' + str(1*subvariables) + ' and ' + str(4*subvariables), icon="🚨")
-                else:
-                    score = float(overwrite)
-            else:
-                with col1:
-                    st.error('Overwrite should be a whole number', icon="🚨")
-
-    return score/subvariables, inputs, sum(inputs), overwrite
-
-def generate_help(options):
-
-    # TODO read out examples
-    examples = ['No diversity in Management Team on e.g. Ethnical background, Gender, Type of working experience (e.g. start-up, scale-up, corporate, institution) and Personality types (green/red/yellow/blue)', ' example 2', 'example 3', ' example 4']
-
+def generate_help(options, examples):
     help_string = 'These are examples of the answers: \n\n' 
     for n, t in enumerate(options):
+        help_string += '**'
         help_string += t
+        help_string += '**'
         help_string += ': '
         help_string += examples[n]
         help_string += '\n\n'
@@ -64,9 +23,10 @@ def generate_help(options):
     return help_string
     
 
-def riskDriver2(riskdriver_groupby, riskdriver, number):
+def riskDriver(riskdriver_groupby, riskdriver, number):
+
     # Define column width
-    col1, col2, col3 = st.columns([6, 1, 2])
+    col1, col2, col3 = st.columns([8, 1, 3])
 
     # Retrieve driver information from groupby object
     subvariables = riskdriver_groupby['Variable'].unique().tolist()
@@ -81,13 +41,11 @@ def riskDriver2(riskdriver_groupby, riskdriver, number):
             # Loop over variables
             for i, sv in enumerate(subvariables):
                 options = riskdriver_groupby[riskdriver_groupby['Variable']==sv]['Answers'].tolist()
-                string = generate_help(options)
+                examples = riskdriver_groupby[riskdriver_groupby['Variable']==sv]['Example'].tolist()
+                string = generate_help(options, examples)
                 choice = st.selectbox(sv, options, help=string)
 
-                examples = ['example 1', ' example 2', 'example 3', ' example 4']
-                st.markdown(examples[options.index(choice)])
-
-                # Determine score for subvariable
+                # Determine score for subvariable (sv)
                 sv_score = options.index(choice) + 1
                 sv_score_rel = sv_score / len(options)
                 inputs[i] = sv_score_rel
@@ -98,13 +56,14 @@ def riskDriver2(riskdriver_groupby, riskdriver, number):
 
     # Display score for risk driver based on score per varialbe
     with col2:
-        st.text_input(label='score', value=score_rel, label_visibility='collapsed', disabled=True, key=str(number)+'col2')
+        st.text_input(label='score', value=round(score_rel, 2), label_visibility='collapsed', disabled=True, key=str(number)+'col2')
     
     # Create input box for overwriting risk driver score
     with col3:
         overwrite = st.selectbox('Overwrite', overwrites, label_visibility='collapsed')
         if overwrite is not 'No overwrite':
             score = overwrites.index(overwrite) 
+            score_rel = score / (len(overwrites)-1)
 
     return score_rel, inputs, sum(inputs), overwrite
 
@@ -121,7 +80,6 @@ def convert_range(value, min_original, max_original, min_new, max_new):
 
 
 def apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, risk_driver, value):
-     # TODO misschien later in 1x applyen ipv per risk driver? 
 
     # Retrieve which weights are selected
     selected_groups = []
@@ -136,12 +94,16 @@ def apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev
 
     # Calculate the average of the selected weights
     selected_weights_df = weights_df[selected_groups]
-    weights_df['Average'] = selected_weights_df.mean(axis=1)
+    weights_df['Sum'] = selected_weights_df.sum(axis=1)
+
+
+    total_points = weights_df['Sum'].sum()
+    weights_df['Weight'] = weights_df['Sum'] / total_points
 
     # st.dataframe(weights_df)
 
     # Obtain and apply weight
-    weight = weights_df.loc[weights_df['Risk Factor'] == risk_driver, 'Average'].values[0]
+    weight = weights_df.loc[weights_df['Risk Factor'] == risk_driver, 'Weight'].values[0]
     weighted_value = value * weight
 
     return weighted_value
@@ -155,7 +117,7 @@ if __name__ == '__main__':
     client_company = st.text_input(label='Filled in for', placeholder='Name/company for which to determine a risk score', key='client_key')
     date = datetime.datetime.now().date()
     time = datetime.datetime.now().time().replace(microsecond=0)
-    version = 'v0.1'
+    version = 'v0.61'
     row = [str(date), str(time), version, user, client_company]
     info_columns = len(row)
 
@@ -201,43 +163,43 @@ if __name__ == '__main__':
 
     # Create dropdown for each risk driver
     n = 1
+    risk_scores = []
     for name, rd in drivers_df.groupby('Risk Driver', sort=False):
-        riskDriver2(rd, name, n)
+        risk, inputs, score, overwrite = riskDriver(rd, name, n)
+        
+        # Apply expert weight
+        weighted_risk = apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, name, risk)
+
+        # Store risk driver information
+        risk_scores.append(weighted_risk)
+        row.extend(inputs)
+        row.append(score)
+        row.append(overwrite)
+
         n += 1
-
-    # RD 1
-    st.text('old:')
-    # TODO denk dict van variables en dan hierover loopen (als t kan, moet variabelen hardcoden denk ik)
-    riskdriver_1 = 'Security of resources'
-    subvariables_1 = ['Dependency on Critical Raw Materials', 'Closest peak year of critical raw materials', 'Ownership/control over resources (natural hedge)', 'Type of relationship with value chain']
-    number = n 
-    risk_1, inputs_1, score_1, overwrite_1 = riskDriver(riskdriver_1, subvariables_1, number)
-    row.extend(inputs_1)
-    row.append(score_1)
-    row.append(overwrite_1)
-    inversed_risk_1 = 1/risk_1
-    scaled_risk_1 = convert_range(inversed_risk_1, min_original=0.25, max_original=1.0, min_new=0.0, max_new=1.0)
-    weighted_risk_1 = apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, riskdriver_1, scaled_risk_1)
-
-    # RD 2
-    riskdriver_2 = 'Circularity of asset'
-    subvariables_2 = ['xx', 'yy', 'zz']
-    number = n + 1
-    risk_2, inputs_2, score_2, overwrite_2 = riskDriver(riskdriver_2, subvariables_2, number)
-    inversed_risk_2 = 1/risk_2
-    scaled_risk_2 = convert_range(inversed_risk_2, min_original=0.25, max_original=1.0, min_new=0.0, max_new=1.0)
-    weighted_risk_2 = apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, riskdriver_2, scaled_risk_2)
 
     st.header('Determine risk score')
 
-    # Normalize risk score based on amount of risk drivers
-    number_of_RiskDrivers = 2
-    final_score = (weighted_risk_1 + weighted_risk_2)/number_of_RiskDrivers
-    normalized_final_score = convert_range(final_score, min_original=0, max_original=max_weight, min_new=0, max_new=100)
+    # Determine final score and convert in on scale 0 to 100
+    final_score = sum(risk_scores)
+    min_score = 0.25
+    normalized_final_score = convert_range(final_score, min_original=min_score, max_original=1, min_new=0, max_new=100)
 
     # Display final score and insert to correct column
-    st.text('Final Score: ' + str(normalized_final_score))
+    col1, col2 = st.columns([3,2])
+    with col1:
+        st.text('Final Score: ' + str(round(final_score, 3)))
+        st.text('Normalized final Score: ' + str(round(normalized_final_score, 3)))
+    with col2:
+        internal_score = st.number_input('Internal score', min_value=0., max_value=1., step=0.01)
+    
+    # Store scorecard score and internal score
     row.insert(info_columns, normalized_final_score)
+    row.insert(info_columns+1, internal_score)
+
+    # Request feedback
+    feedback = st.text_area('Feedback on this form', placeholder="Please provide here any feedback that you have on, e.g., convenience of filing in this form, or how well the score from this form aligns with your internal score. ")
+    row.append(feedback)
 
     # Submit data to google sheet
     send = st.button("Submit")
