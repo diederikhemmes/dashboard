@@ -1,15 +1,10 @@
 import streamlit as st
-# import plotly.express as px 
-# import plotly.graph_objects as go
 import pandas as pd
-# import matplotlib.pyplot as plt
 import datetime
-# import numpy as np
-from streamlit import components
 from PIL import Image
-
 import gspread
 from google.oauth2 import service_account
+
 
 def generate_help(options, examples):
     help_string = 'These are examples of the answers: \n\n' 
@@ -80,7 +75,8 @@ def convert_range(value, min_original, max_original, min_new, max_new):
     return scaled_value
 
 
-def apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, risk_driver, value):
+@st.cache_data
+def prepare_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight):
 
     # Retrieve which weights are selected
     selected_groups = []
@@ -103,6 +99,26 @@ def apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev
 
     # st.dataframe(weights_df)
 
+    return weights_df 
+
+
+@st.cache_data
+def load_expert_data(filepath_weights):
+    weights_df = pd.read_excel(filepath_weights)
+
+    return weights_df
+
+
+@st.cache_data
+def load_drivers_data(filepath_risk):
+    drivers_df = pd.read_excel('RD_test.xlsx')
+    drivers_df = drivers_df.fillna(method='ffill', axis=0)
+
+    return drivers_df
+
+
+def apply_weights(weights_df, risk_driver, value):
+
     # Obtain and apply weight
     weight = weights_df.loc[weights_df['Risk Factor'] == risk_driver, 'Weight'].values[0]
     weighted_value = value * weight
@@ -110,77 +126,100 @@ def apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev
     return weighted_value
 
 
+@st.cache_data
+def load_images(image_path1, image_path2, image_path3):
+    image_RQ = Image.open(image_path1)
+    image_C8 = Image.open(image_path2)
+    image_CF = Image.open(image_path3)
 
-if __name__ == '__main__':
-
-    # Create logo header
     col1, col2, col3 = st.columns([2,4,2])
-    image_RQ = Image.open('Images/logo_RQ_rgb.jpg')
-    image_C8 = Image.open('Images/Copper8_logo.png')
-    image_CF = Image.open('Images/circular_finance_lab_logo.png')
+
     with col2:
         st.image(image_CF)
-    col1, col2, col3 = st.columns([10, 1, 7]) #st.columns([10,6.5])
+    col1, col2, col3 = st.columns([10, 1, 7]) 
     with col1:
         st.image(image_RQ)
     with col3:
         st.image(image_C8)
 
+    return
+
+
+def create_weights_UI():
+    st.header('Choose expert weights')
+    col1, col2, col3, col4 = st.columns([1,1,1,1])
+    with col1:
+        finance_weight = st.checkbox('Finance', value=True)
+    with col2:
+        risk_weight = st.checkbox('Risk', value=True)
+    with col3:
+        invest_weight = st.checkbox('Invest', value=True)
+    with col4:
+        busdev_weight = st.checkbox('Bus Dev', value=True)
+    if not any([finance_weight, risk_weight, invest_weight, busdev_weight]):
+        st.error('Please select at least one expert weight', icon="🚨")
+
+    return finance_weight, risk_weight, invest_weight, busdev_weight
+
+
+if __name__ == '__main__':
+
+    # Create logo header
+    load_images('Images/logo_RQ_rgb.jpg', 'Images/Copper8_logo.png', 'Images/circular_finance_lab_logo.png')
+
     # Create tabs
     tab1, tab2= st.tabs(["Scorecard", "Readme"])
+
+    # Set up the scope and credentials to Google Sheet
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+        ],
+    )
+
+    # Obtain general information
+    date = datetime.datetime.now().date()
+    time = datetime.datetime.now().time().replace(microsecond=0)
+    version = 'v0.61'
 
 #####################################################################################  
 # Scorecard tab
 #####################################################################################  
     with tab1:
 
+        # Try to open sheet
+        try:
+            client = gspread.authorize(credentials)
+            sheets_url = st.secrets["sheet_url"]
+            sh = client.open_by_url(sheets_url)
+        except:
+            st.error('Please check your internet connection. If this is not the issue, the connection to the sheet is lost.', icon="🚨")
+
+        # Create name and company input fields
         st.header('Fill in details')
         user = st.text_input(label='Filled in by', placeholder='Your name/company', key='name_key')
         client_company = st.text_input(label='Filled in for', placeholder='Name/company for which to determine a risk score', key='client_key')
-        date = datetime.datetime.now().date()
-        time = datetime.datetime.now().time().replace(microsecond=0)
-        version = 'v0.61'
+
+        # Store general information
         row = [str(date), str(time), version, user, client_company]
         info_columns = len(row)
 
-        # Set up the scope and credentials to Google Sheet
-        credentials = service_account.Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"],
-            scopes=[
-                "https://www.googleapis.com/auth/spreadsheets",
-            ],
-        )
-    
-        # Open Google Sheet by its url
-        client = gspread.authorize(credentials)
-        sheets_url = st.secrets["sheet_url"]
-        sh = client.open_by_url(sheets_url)
-
-        # Weights selection UI
-        st.header('Choose expert weights')
-        col1, col2, col3, col4 = st.columns([1,1,1,1])
-        with col1:
-            finance_weight = st.checkbox('Finance', value=True)
-        with col2:
-            risk_weight = st.checkbox('Risk', value=True)
-        with col3:
-            invest_weight = st.checkbox('Invest', value=True)
-        with col4:
-            busdev_weight = st.checkbox('Bus Dev', value=True)
-        if not any([finance_weight, risk_weight, invest_weight, busdev_weight]):
-            st.error('Please select at least one expert weight', icon="🚨")
+        # Create expert weight selection UI
+        finance_weight, risk_weight, invest_weight, busdev_weight = create_weights_UI()
 
         # Read in expert weights file 
-        weights_df = pd.read_excel('Expert_weights.xlsx')
+        filepath_weights = 'Expert_weights.xlsx'
+        weights_df_init = load_expert_data(filepath_weights)
 
-        # Find maximum weight to use for normalization
-        max_weight = weights_df.iloc[:, 1:].max().max()
+        # Prepare weights based on selected expert groups
+        weights_df = prepare_weights(weights_df_init, finance_weight, risk_weight, invest_weight, busdev_weight)
 
         st.header('Score risk factors')
 
         # Read in risk driver file
-        drivers_df = pd.read_excel('RD_test.xlsx')
-        drivers_df = drivers_df.fillna(method='ffill', axis=0)
+        filepath_risk = 'RD_test.xlsx'
+        drivers_df = load_drivers_data(filepath_risk)
 
         # Create dropdown for each risk driver
         n = 1
@@ -189,7 +228,7 @@ if __name__ == '__main__':
             risk, inputs, score, overwrite = riskDriver(rd, name, n)
             
             # Apply expert weight
-            weighted_risk = apply_weights(weights_df, finance_weight, risk_weight, invest_weight, busdev_weight, name, risk)
+            weighted_risk = apply_weights(weights_df, name, risk)
 
             # Store risk driver information
             risk_scores.append(weighted_risk)
@@ -216,7 +255,6 @@ if __name__ == '__main__':
         # Store scorecard score and internal score
         row.insert(info_columns, normalized_final_score)
         row.insert(info_columns+1, internal_score)
-        st.text(finance_weight)
         row.extend([finance_weight, risk_weight, invest_weight, busdev_weight])
 
         # Request feedback
