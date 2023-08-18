@@ -465,9 +465,9 @@ if __name__ == '__main__':
 
         st.markdown("**Circularity score**: The form will show the determined circularity score,\
                      which lies between 0 (lowest) and 100 (good). Please fill in your \
-                    internel Probability of Default for comparison.")
+                    internal Probability of Default for comparison.")
         
 
         
-
+        
 
