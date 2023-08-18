@@ -113,8 +113,12 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
     with col1:
         with st.expander('Risk Driver ' + str(number) + ': ' + riskdriver):
             inputs = [None]*len(variables)
+            inputs_text = [None]*len(variables)
 
-            # Loop over variables
+            # Loop over variables'
+            min_score_rel = 0
+            max_score = 0
+            scored_points = 0
             for i, v in enumerate(variables):
                 options = riskdriver_groupby[riskdriver_groupby['Variable']==v]['Answers'].tolist()
                 examples = riskdriver_groupby[riskdriver_groupby['Variable']==v]['Example'].tolist()
@@ -125,10 +129,16 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
                 v_score = options.index(choice) + 1
                 v_score_rel = v_score / len(options)
                 inputs[i] = v_score_rel
+                inputs_text[i] = choice
+                scored_points += v_score
+                max_score += len(options)
+                min_score_rel += 1 / len(options)
 
             # Determince score for risk driver
             score = sum(inputs)
             score_rel = score / len(variables)
+            min_score_rel = min_score_rel / len(variables)
+            score_rel_text = overwrites[round(scored_points/max_score*(len(overwrites)-1))]
 
     # Display score for risk driver based on score per varialbe
     with col2:
@@ -136,12 +146,16 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
     
     # Create input box for overwriting risk driver score
     with col3:
-        overwrite = st.selectbox('Overwrite', overwrites, label_visibility='collapsed')
-        if overwrite is not 'No overwrite':
-            score = overwrites.index(overwrite) 
-            score_rel = score / (len(overwrites)-1)
+        overwrite = False
+        overwrite_text = st.selectbox('Overwrite', overwrites, label_visibility='collapsed')
+        if overwrite_text != 'No overwrite':
+            score = overwrites.index(overwrite_text) 
+            score_rel_overwrite = score / (len(overwrites)-1)
+            score_rel = convert_range(score_rel_overwrite, 1/(len(overwrites)-1), 1, min_score_rel, 1) # Scale overwrite to same range as based variables
+            score_rel_text = overwrite_text
+            overwrite = True
 
-    return score_rel, inputs, sum(inputs), overwrite
+    return score_rel, score_rel_text, inputs, inputs_text, overwrite, overwrite_text
 
 
 def generate_help(options: list[str], examples: list[str]) -> str:
@@ -156,17 +170,16 @@ def generate_help(options: list[str], examples: list[str]) -> str:
         options (list[str]): A list of options for a variable.
         examples (list[str]): A list of examples corresponding to each option.
 
-    Returns:
+    Returns: 
         str: A formatted help string containing option names and examples.
     """ 
     help_string = 'These are examples of the answers: \n\n' 
     for n, t in enumerate(options):
-        help_string += '**'
         help_string += t
-        help_string += '**'
         help_string += ': '
+        help_string += """ \n """
         help_string += examples[n]
-        help_string += '\n\n'
+        help_string += '\n\n' 
     
     return help_string
 
@@ -297,14 +310,14 @@ def apply_weights(weights_df: pd.DataFrame, risk_driver: str, value: float) -> f
     return weighted_value
 
 
-############################################################################################################
+#### main ##################################################################################################
 if __name__ == '__main__':
 
     # Create logo header
     load_images('Images/logo_RQ_rgb.jpg', 'Images/Copper8_logo.png', 'Images/circular_finance_lab_logo.png')
 
     # Create tabs
-    tab1, tab2= st.tabs(["Scorecard", "Readme"])
+    tab1, tab2= st.tabs(["Scorecard", "Read before use"])
 
     # Set up the scope and credentials to Google Sheet
     credentials = service_account.Credentials.from_service_account_info(
@@ -339,6 +352,7 @@ if __name__ == '__main__':
 
         # Store general information
         row = [str(date), str(time), version, user, client_company]
+        text_row = [] # Row for storing variable selections in text
         info_columns = len(row)
 
         # Create expert weight selection UI
@@ -361,7 +375,7 @@ if __name__ == '__main__':
         n = 1
         risk_scores = []
         for name, rd in drivers_df.groupby('Risk Driver', sort=False):
-            risk, inputs, score, overwrite = riskDriver(rd, name, n)
+            risk, risk_text, inputs, inputs_text, overwrite, overwrite_text = riskDriver(rd, name, n)
             
             # Apply expert weight
             weighted_risk = apply_weights(weights_df, name, risk)
@@ -369,33 +383,46 @@ if __name__ == '__main__':
             # Store risk driver information
             risk_scores.append(weighted_risk)
             row.extend(inputs)
-            row.append(score)
+            row.append(risk)
             row.append(overwrite)
+            text_row.extend(inputs_text)
+            text_row.append(risk_text)
+            text_row.append(overwrite_text)
             n += 1
 
         st.header('Determine risk score')
-
+ 
         # Determine final score and convert in on scale 0 to 100
         final_score = sum(risk_scores)
-        min_score = 0.25
+        min_score = 0.266246 # Lowest score possible when filling in form
         normalized_final_score = convert_range(final_score, min_original=min_score, max_original=1, min_new=0, max_new=100)
 
         # Display final score and insert to correct column
         col1, col2 = st.columns([3,2])
         with col1:
-            st.text('Final Score: ' + str(round(final_score, 3)))
-            st.text('Normalized final Score: ' + str(round(normalized_final_score, 3)))
+            st.markdown(' ')
+            st.markdown('  ')
+            st.markdown('Circularity Score: ' + str(round(normalized_final_score, 1)))
         with col2:
-            internal_score = st.number_input('Internal score', min_value=0., max_value=1., step=0.01)
+            internal_score = st.number_input('Internal PD', min_value=0., max_value=1., step=0.01)
         
-        # Store scorecard score and internal score
+        # Store scorecard score and internal PD
         row.insert(info_columns, normalized_final_score)
         row.insert(info_columns+1, internal_score)
         row.extend([finance_weight, risk_weight, invest_weight, busdev_weight])
 
+        st.header('Feedback and submit')
+
         # Request feedback
-        feedback = st.text_area('Feedback on this form', placeholder="Please provide here any feedback that you have on, e.g., convenience of filing in this form, or how well the score from this form aligns with your internal score. ")
+        feedback = st.text_area('Feedback on this form', placeholder="Please provide here any feedback that you have on, e.g., convenience of filing in this form, or how well the score from this form aligns with your internal PD. ", label_visibility='collapsed')
         row.append(feedback)
+
+        # Add variable text input to row
+        row.extend(text_row)
+
+        # Create test box
+        test = st.checkbox('Please select this box if you are testing the dashboard', value=False)
+        row.insert(info_columns, test)
 
         # Submit data to google sheet
         send = st.button("Submit")
@@ -407,23 +434,40 @@ if __name__ == '__main__':
 # Readme tab
 #####################################################################################  
     with tab2:
+        st.header('Background')
+        st.markdown("""This dashboard outputs a circularity score given input parameters corresponding \
+                    to a circular economy company. This score can be used as a decision factor in deciding \
+                    which circular economy deals are accepted or rejected by, for example, banks. In addition, \
+                    the dashboard can give insight into which risk factors are important in making these kinds \
+                    of decisions. """)
+
+
+
+        st.header('Instructions')
         st.markdown('**Names**: It is possible to use dummy names for the \'filled \
                      in by\' and \'filled in for\' fields.')
-
-        st.markdown("**Scoring risk drivers**: The scorecard contains six risk drivers, \
-            each with multiple variables. If you are unsure about how to rate the \
-            variables, it is possible to provide an overwrite for the risk driver \
-            score. This overwrite replaces the score determined on the separate variables."
+        
+        st.markdown("""**Scoring risk drivers**: The scorecard contains six risk drivers, \
+            each with multiple variables. Place your mouse on the question mark icon for \
+            examples of how to rate a company. The number in the box shows the risk driver score, \
+            which can range from 0.25 or 0.33 (depending on the amount of options per varialbe), to 1, \
+            where 1 is the best score.  """
         ) 
+
+        st.markdown("""**Overwrite risk score**: If you are unsure about how to rate the \
+            variables, it is possible to provide an overwrite for the risk driver \
+            score. This overwrite replaces the score determined on the separate variables.""")
 
         st.markdown("**Expert weights**: Different groups of experts distributed points over \
                     the different risk drivers. It is possible to select expert groups to weight \
                     the circular score."
         ) 
 
-
-        st.markdown("**Final score**: The form will show the determined circular score,\
+        st.markdown("**Circularity score**: The form will show the determined circularity score,\
                      which lies between 0 (lowest) and 100 (good). Please fill in your \
-                    internel Probability of Default score for comparison.")
+                    internel Probability of Default for comparison.")
+        
+
+        
 
 
