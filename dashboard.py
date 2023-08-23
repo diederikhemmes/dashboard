@@ -4,38 +4,25 @@ import datetime
 from PIL import Image
 import gspread
 from google.oauth2 import service_account
-
+import matplotlib.pyplot as plt
+import numpy as np
 
 @st.cache_data
-def load_images(image_path1: str, image_path2: str, image_path3: str) -> None:
+def load_images(image_path: str) -> None:
     """
     Load and display images in a formatted layout.
 
-    This function loads and displays three images from provided file paths in a
+    This function loads and displays images from provided file paths in a
     structured layout using Streamlit's column layout features.
 
     Args:
-        image_path1 (str): File path to the first image.
-        image_path2 (str): File path to the second image.
-        image_path3 (str): File path to the third image.
+        image_path (str): File path to the image.
 
     Returns:
         None
     """
-    # Open images
-    image_RQ = Image.open(image_path1)
-    image_C8 = Image.open(image_path2)
-    image_CF = Image.open(image_path3)
-
-    # Place images in nice layout in columns
-    col1, col2, col3 = st.columns([2,4,2])
-    with col2:
-        st.image(image_CF)
-    col1, col2, col3 = st.columns([10, 1, 7]) 
-    with col1:
-        st.image(image_RQ)
-    with col3:
-        st.image(image_C8)
+    logos = Image.open(image_path)
+    st.image(logos)
 
     return
 
@@ -79,9 +66,29 @@ def load_drivers_data(filepath_risk: str) -> pd.DataFrame:
 
     return drivers_df
 
+
+@st.cache_data
+def load_peak_data(filepath_peaks: str) -> pd.DataFrame:
+    """
+    Load peak extraction data from an Excel file.
+
+    This function reads an Excel file containing peak extraction data and returns
+    the data as a pandas DataFrame.
+
+    Args:
+        filepath_weights (str): File path to the Excel file containing peak extraction data.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the loaded peak extraction data.
+    """
+    peaks_df = pd.read_excel(filepath_peaks)
+    peaks_df = peaks_df.fillna('no examples')
+
+    return peaks_df
+
     
 def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
-    -> tuple[float, list[float], float, str]:
+    -> tuple[float, str, list[float], list[str], float, str]:
     """
     Calculate risk driver scores and provide user interface for customization.
 
@@ -95,19 +102,22 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
         number (int): Sequential number of the risk driver.
 
     Returns:
-        tuple[float, list[float], float, str]: A tuple containing:
+        tuple[float, str, list[float], list[str], float, str]: A tuple containing:
             - The calculated normalized score for the risk driver.
+            - The score in text.
             - A list of normalized scores for variables.
-            - The sum of variable scores.
-            - The selected overwrite option for the risk driver score.
+            - A list of selected text score per variable.
+            - The selected overwrite score.
+            - The selected overwrite option in text.
     """
+
     # Define column width
-    col1, col2, col3 = st.columns([8, 1, 3])
+    col1, col2 = st.columns([10, 5])
 
     # Retrieve driver information from groupby object
     variables = riskdriver_groupby['Variable'].unique().tolist()
-    overwrites = riskdriver_groupby['Overwrites'].unique().tolist()
-    overwrites.insert(0, 'No overwrite')
+    overwrites_init = riskdriver_groupby['Overwrites'].unique().tolist()
+    overwrites = ['Overwrite: '+ i for i in overwrites_init]
 
     # Create drop down for riskdriver
     with col1:
@@ -138,26 +148,23 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
             score = sum(inputs)
             score_rel = score / len(variables)
             min_score_rel = min_score_rel / len(variables)
-            score_rel_text = overwrites[round(scored_points/max_score*(len(overwrites)-1))]
+            score_rel_text = overwrites_init[round(scored_points/max_score*(len(overwrites_init)))-1]
+            overwrites.insert(0, score_rel_text)
 
-    # Display score for risk driver based on score per varialbe
-    with col2:
-        st.text_input(label='score', value=round(score_rel, 2), label_visibility='collapsed', disabled=True, key=str(number)+'col2')
-    
     # Create input box for overwriting risk driver score
-    with col3:
+    with col2:
         overwrite = False
         overwrite_text = st.selectbox('Overwrite', overwrites, label_visibility='collapsed')
-        if overwrite_text != 'No overwrite':
+        if overwrite_text != score_rel_text:
             score = overwrites.index(overwrite_text) 
-            score_rel_overwrite = score / (len(overwrites)-1)
-            score_rel = convert_range(score_rel_overwrite, 1/(len(overwrites)-1), 1, min_score_rel, 1) # Scale overwrite to same range as based variables
+            score_rel_overwrite = score / (len(overwrites_init))
+            score_rel = convert_range(score_rel_overwrite, 1/(len(overwrites_init)), 1, min_score_rel, 1) # Scale overwrite to same range as based variables
             score_rel_text = overwrite_text
             overwrite = True
 
     return score_rel, score_rel_text, inputs, inputs_text, overwrite, overwrite_text
 
-
+@st.cache_data
 def generate_help(options: list[str], examples: list[str]) -> str:
     """
     Generate a help string with examples for each option.
@@ -183,7 +190,7 @@ def generate_help(options: list[str], examples: list[str]) -> str:
     
     return help_string
 
-
+@st.cache_data
 def convert_range(value: float, min_original: float, max_original: float, \
                   min_new: float, max_new:float) -> float:
     """
@@ -270,7 +277,7 @@ def create_weights_UI() -> tuple[bool, bool, bool, bool]:
     st.header('Choose expert weights')
 
     # Create checkboxes for each expert group
-    col1, col2, col3, col4 = st.columns([1,1,1,1])
+    col1, col2, col3, col4 = st.columns([1,1,1,1.3])
     with col1:
         finance_weight = st.checkbox('Finance', value=True)
     with col2:
@@ -278,7 +285,7 @@ def create_weights_UI() -> tuple[bool, bool, bool, bool]:
     with col3:
         invest_weight = st.checkbox('Invest', value=True)
     with col4:
-        busdev_weight = st.checkbox('Bus Dev', value=True)
+        busdev_weight = st.checkbox('Business Development', value=True)
 
     # At least one of the weights should be selected, display error if not
     if not any([finance_weight, risk_weight, invest_weight, busdev_weight]):
@@ -309,15 +316,61 @@ def apply_weights(weights_df: pd.DataFrame, risk_driver: str, value: float) -> f
 
     return weighted_value
 
+@st.cache_data
+def plot_weights(weights_df_plot: pd.DataFrame) -> None:
+    """
+    Create a bar chart depicting the distribution of importance points over risk drivers,
+    colored by expert group.
+
+    Parameters:
+        weights_df_plot (pandas.DataFrame): DataFrame containing importance weights per risk driver.
+
+    Returns:
+        None
+    """
+    plt.style.use('tableau-colorblind10')   
+
+    # Normalize expert points
+    column_sums = weights_df_plot.sum()
+    normalized_df = weights_df_plot.iloc[:, 1:].div(column_sums, axis=1)
+    normalized_df['Risk Factor'] = weights_df_plot['Risk Factor']
+
+    # Set the 'Risk Factor' column as the index
+    normalized_df.set_index('Risk Factor', inplace=True)
+
+    # Get the column names and row indices
+    columns = normalized_df.columns
+    indices = normalized_df.index
+    width = 0.1
+
+    # Create an array for x-axis positions
+    x = np.arange(len(indices))
+
+    # Plotting the bar chart 
+    fig, ax = plt.subplots(figsize=(10,5))
+    for i, column in enumerate(columns):
+        ax.bar(x + i * width, normalized_df[column], width=width, label=column) 
+
+    # Adding labels, legend, and title 
+    ax.set_xticks(x + (len(columns) - 1) * width / 2)
+    ax.set_xticklabels(indices, rotation=45, ha='right', fontsize=12)
+    ax.set_ylabel('Fraction of points', fontsize=14)
+    ax.legend()
+
+    st.pyplot(fig)
+
+    return 
+
 
 #### main ##################################################################################################
 if __name__ == '__main__':
 
     # Create logo header
-    load_images('Images/logo_RQ_rgb.jpg', 'Images/Copper8_logo.png', 'Images/circular_finance_lab_logo.png')
+    image_path = 'Images/Logos1.png'
+    load_images(image_path)
 
     # Create tabs
-    tab1, tab2= st.tabs(["Scorecard", "Read before use"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Scorecard", "Read before use", "Peak extraction years", "Distribution of expert weights"])
 
     # Set up the scope and credentials to Google Sheet
     credentials = service_account.Credentials.from_service_account_info(
@@ -359,7 +412,7 @@ if __name__ == '__main__':
         finance_weight, risk_weight, invest_weight, busdev_weight = create_weights_UI()
 
         # Read in expert weights file 
-        filepath_weights = 'Expert_weights.xlsx'
+        filepath_weights = 'Data/Expert_weights.xlsx'
         weights_df_init = load_expert_data(filepath_weights)
 
         # Prepare weights based on selected expert groups
@@ -368,7 +421,7 @@ if __name__ == '__main__':
         st.header('Score risk factors')
 
         # Read in risk driver file
-        filepath_risk = 'RD_test.xlsx'
+        filepath_risk = 'Data/RD_test.xlsx'
         drivers_df = load_drivers_data(filepath_risk)
 
         # Create dropdown for each risk driver
@@ -390,7 +443,7 @@ if __name__ == '__main__':
             text_row.append(overwrite_text)
             n += 1
 
-        st.header('Determine risk score')
+        st.header('Determine final score')
  
         # Determine final score and convert in on scale 0 to 100
         final_score = sum(risk_scores)
@@ -400,11 +453,11 @@ if __name__ == '__main__':
         # Display final score and insert to correct column
         col1, col2 = st.columns([3,2])
         with col1:
-            st.markdown(' ')
-            st.markdown('  ')
-            st.markdown('Circularity Score: ' + str(round(normalized_final_score, 1)))
+            st.metric('Circularity Score: ', str(round(normalized_final_score, 1)) + ' / 100')
+            st.progress(round(normalized_final_score, 1)/100)
+
         with col2:
-            internal_score = st.number_input('Internal PD', min_value=0., max_value=1., step=0.01)
+            internal_score = st.number_input('Internal PD (0.0100 = 1%)', min_value=0.000, max_value=1.000, step=0.0001, format="%.4f")
         
         # Store scorecard score and internal PD
         row.insert(info_columns, normalized_final_score)
@@ -441,33 +494,58 @@ if __name__ == '__main__':
                     the dashboard can give insight into which risk factors are important in making these kinds \
                     of decisions. """)
 
-
-
         st.header('Instructions')
         st.markdown('**Names**: It is possible to use dummy names for the \'filled \
                      in by\' and \'filled in for\' fields.')
         
         st.markdown("""**Scoring risk drivers**: The scorecard contains six risk drivers, \
-            each with multiple variables. Place your mouse on the question mark icon for \
-            examples of how to rate a company. The number in the box shows the risk driver score, \
-            which can range from 0.25 or 0.33 (depending on the amount of options per varialbe), to 1, \
-            where 1 is the best score.  """
+                    each with multiple variables. Place your mouse on the question mark icon for \
+                    examples of how to rate a company. """
         ) 
 
         st.markdown("""**Overwrite risk score**: If you are unsure about how to rate the \
-            variables, it is possible to provide an overwrite for the risk driver \
-            score. This overwrite replaces the score determined on the separate variables.""")
+                    variables, it is possible to provide an overwrite for the risk driver \
+                    score. This overwrite replaces the score determined on the separate variables, \
+                    which is displayed as the first option in the selection box.""")
 
         st.markdown("**Expert weights**: Different groups of experts distributed points over \
                     the different risk drivers. It is possible to select expert groups to weight \
-                    the circular score."
+                    the circular score. The weight distribution is visualized in the \
+                    \'Distribution of expert weights\' tab."
         ) 
 
         st.markdown("**Circularity score**: The form will show the determined circularity score,\
                      which lies between 0 (lowest) and 100 (good). Please fill in your \
                     internal Probability of Default for comparison.")
-        
 
-        
-        
+#####################################################################################  
+# Peak Extraction Year tab
+#####################################################################################          
+        with tab3:    
+            st.markdown("This table contains the expected peak extraction years for materials, which\
+                        is needed for risk driver 3.1. Reference: \
+                        [Sverdrup & Ragnarsdóttir (2014)](https://www.geochemicalperspectives.org/wp-content/uploads/v3n2.pdf).\
+                        ")
+            
+            # Load and show table
+            filepath_peaks = 'Data/Peak_extraction_years.xlsx'    
+            peaks_df = load_peak_data(filepath_peaks)
+            st.dataframe(peaks_df, hide_index=True, use_container_width=True)
+
+#####################################################################################  
+# Expert weight plot tab
+#####################################################################################          
+        with tab4:
+            st.markdown("This bar chart shows what fraction of points was assigned to which risk driver \
+                        for each expert group.")
+            
+            # Plot weights distribution
+            plot_weights(weights_df_init[['Risk Factor', 'Sub score Risk', 'Sub score Bus Dev', 'Sub score Finance', 'Sub score Invest']])
+            
+
+
+
+
+
+           
 
