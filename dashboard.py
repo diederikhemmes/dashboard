@@ -433,7 +433,7 @@ if __name__ == '__main__':
         st.header('Score risk factors')
 
         # Read in risk driver file
-        filepath_risk = 'Data/RD_test.xlsx'
+        filepath_risk = 'Data/Risk_drivers.xlsx'
         drivers_df = load_drivers_data(filepath_risk)
 
         # Create dropdown for each risk driver
