@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import pytz 
 from PIL import Image
 import gspread
 from google.oauth2 import service_account
@@ -381,8 +382,8 @@ if __name__ == '__main__':
     )
 
     # Obtain general information
-    date = datetime.datetime.now().date()
-    time = datetime.datetime.now().time().replace(microsecond=0)
+    date = datetime.datetime.now(tz=pytz.timezone('Europe/Amsterdam')).date()
+    time = datetime.datetime.now(tz=pytz.timezone('Europe/Amsterdam')).time().replace(microsecond=0)
     version = 'v0.61'
 
 #####################################################################################  
