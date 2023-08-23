@@ -1,3 +1,14 @@
+# -----------------------------------------------------------------------------
+# Title: Circularity Score Dashboard
+# Author: Iris Reitsma
+# Date: August 23, 2023
+# Description: This script creates a streamlit dashboard. This dashboard calculates 
+#   a circularity score given input parameters corresponding to a circular economy 
+#   company. A user can select which expert input to incorporate in the calculation,
+#   and can choose whether to score risk drivers using multiple variables or one
+#   overwrite. 
+# -----------------------------------------------------------------------------
+
 import streamlit as st
 import pandas as pd
 import datetime
