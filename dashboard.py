@@ -18,6 +18,7 @@ import gspread
 from google.oauth2 import service_account
 import matplotlib.pyplot as plt
 import numpy as np
+from fpdf import FPDF
 
 @st.cache_data
 def load_images(image_path: str) -> None:
@@ -444,7 +445,7 @@ if __name__ == '__main__':
         sheet = select_bank(banks, urls)
         user = st.text_input(label='Filled in by', placeholder='Your name/company', key='name_key')
         client_company = st.text_input(label='Filled in for', placeholder='Name/company for which to determine a risk score', key='client_key')
-
+        
         # Try to open sheet
         try:
             client = gspread.authorize(credentials)
@@ -457,6 +458,15 @@ if __name__ == '__main__':
         row = [str(date), str(time), version, user, client_company]
         text_row = [] # Row for storing variable selections in text
         info_columns = len(row)
+
+        # Set up PDF for storing input
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size = 20)
+        pdf.cell(200, 30, txt = 'Circularity Scorecard Summary', ln = 1, align = 'C')
+        pdf.set_font("Arial", size = 14)
+        pdf.cell(200, 10, txt = 'Filled in by: ' + user, ln = 1, align = 'L')
+        pdf.cell(200, 5, txt = 'Filled in for: ' + client_company, ln = 1, align = 'L')
 
         # Create expert weight selection UI
         finance_weight, risk_weight, invest_weight, busdev_weight = create_weights_UI()
@@ -475,15 +485,15 @@ if __name__ == '__main__':
         drivers_df = load_drivers_data(filepath_risk)
 
         # Create dropdown for each risk driver
-        n = 1
+        rd_number = 1
         risk_scores = []
         for name, rd in drivers_df.groupby('Risk Driver', sort=False):
-            risk, risk_text, inputs, inputs_text, overwrite, overwrite_text = riskDriver(rd, name, n)
+            risk, risk_text, inputs, inputs_text, overwrite, overwrite_text = riskDriver(rd, name, rd_number)
             
             # Apply expert weight
             weighted_risk = apply_weights(weights_df, name, risk)
 
-            # Store risk driver information
+            # Store risk driver information in csv row
             risk_scores.append(weighted_risk)
             row.extend(inputs)
             row.append(risk)
@@ -491,10 +501,26 @@ if __name__ == '__main__':
             text_row.extend(inputs_text)
             text_row.append(risk_text)
             text_row.append(overwrite_text)
-            n += 1
+
+            # Store risk driver information in PDF
+            variables = rd['Variable'].unique().tolist()
+            pdf.cell(200, 15, txt = "Risk driver " + str(rd_number) + ": " + name, ln = 1, align = 'L', )
+            pdf.set_font("Arial", size = 12)
+            if overwrite: 
+                pdf.cell(200, 10, txt = overwrite_text, ln = 1, align = 'L')
+            else:
+                for n, i in enumerate(inputs_text):
+                    pdf.cell(200, 10, txt = variables[n]  + ':', ln = 1, align = 'L')
+                    pdf.set_font("Arial", size = 10)
+                    pdf.cell(200, 5, txt = '   ' + i, ln = 1, align = 'L')
+                    pdf.set_font("Arial", size = 12)
+                pdf.cell(200, 10, txt='Risk Driver score: ' + risk_text , ln = 1, align = 'L')
+            pdf.set_font("Arial", size = 14)
+                
+            rd_number += 1
 
         st.header('Determine final risk score')
- 
+        
         # Determine final score and convert in on scale 0 to 100
         final_score = sum(risk_scores)
         min_score = 0.266246 # Lowest score possible when filling in form
@@ -513,6 +539,8 @@ if __name__ == '__main__':
         row.insert(info_columns, normalized_final_score)
         row.insert(info_columns+1, internal_score)
         row.extend([finance_weight, risk_weight, invest_weight, busdev_weight])
+        pdf.set_font("Arial", size = 20)
+        pdf.cell(200, 30, txt = 'Final Circularity Risk Score: ' + str(round(normalized_final_score, 1)) + ' / 100', ln = 1, align = 'C')
 
         st.header('Feedback and submit')
 
@@ -532,6 +560,11 @@ if __name__ == '__main__':
         # Create test box
         test = st.checkbox('Please select this box if you are testing the dashboard', value=False)
         row.insert(info_columns, test)
+
+        # Download data as PDF
+        pdf.output("output.pdf")
+        with open("output.pdf", "rb") as f:
+            st.download_button(label='Download scorecard as PDF', data=f.read(), file_name=client_company+'_scorecard.pdf', mime='text/csv')
 
         # Submit data to google sheet
         send = st.button("Submit")
@@ -573,8 +606,6 @@ if __name__ == '__main__':
         st.markdown("**Circularity score**: The form will show the determined circularity score,\
                      which lies between 0 (no risk) and 100 (high risk). Please fill in your \
                     internal Probability of Default for comparison.")
-
-        st.text('Test')
 
 #####################################################################################  
 # Peak Extraction Year tab
