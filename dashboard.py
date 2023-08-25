@@ -174,6 +174,12 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
             score_rel_text = overwrite_text
             overwrite = True
 
+    # Provide a motivation for the overwrite
+    if overwrite:
+        motivation = st.text_area(label='Overwrite motivation', placeholder='Please motivate why you selected an overwrite for this risk driver.', key=number)
+        if not motivation:
+            st.error('Please provide a motivation before you continue', icon="🚨")
+
     return score_rel, score_rel_text, inputs, inputs_text, overwrite, overwrite_text
 
 
@@ -376,10 +382,27 @@ def plot_weights(weights_df_plot: pd.DataFrame) -> None:
 
     return 
 
-def select_bank(banks, urls):
 
+def select_bank(banks: list[str], urls: list[str]) -> str:
+    """
+    Selects a bank and retrieves its corresponding URL based on user input.
+
+    This function presents a radio button selection interface to the user,
+    allowing them to choose a bank from the provided list. The selected bank's
+    URL is then determined using its index in the list and retrieved from the
+    'urls' parameter.
+
+    Args:
+        banks (list[str]): A list of strings representing the available bank options.
+        urls (list[str]): A list of strings representing the URLs corresponding to the banks.
+
+    Returns:
+        str: The URL associated with the selected bank.
+    """
+    # Create UI
     chosen_bank = st.radio('Filled in by which bank', options=banks)
 
+    # Select URL based on chosen bank
     bank_index = banks.index(chosen_bank)
     bank_url = urls[bank_index]
 
@@ -470,17 +493,17 @@ if __name__ == '__main__':
             text_row.append(overwrite_text)
             n += 1
 
-        st.header('Determine final score')
+        st.header('Determine final risk score')
  
         # Determine final score and convert in on scale 0 to 100
         final_score = sum(risk_scores)
         min_score = 0.266246 # Lowest score possible when filling in form
-        normalized_final_score = convert_range(final_score, min_original=min_score, max_original=1, min_new=0, max_new=100)
+        normalized_final_score = convert_range(final_score, min_original=min_score, max_original=1, min_new=100, max_new=0)
 
         # Display final score and insert to correct column
         col1, col2 = st.columns([3,2])
         with col1:
-            st.metric('Circularity Score: ', str(round(normalized_final_score, 1)) + ' / 100')
+            st.metric('Circularity Risk Score: ', str(round(normalized_final_score, 1)) + ' / 100')
             st.progress(round(normalized_final_score, 1)/100)
 
         with col2:
@@ -494,8 +517,14 @@ if __name__ == '__main__':
         st.header('Feedback and submit')
 
         # Request feedback
-        feedback = st.text_area('Feedback on this form', placeholder="Please provide here any feedback that you have on, e.g., convenience of filing in this form, or how well the score from this form aligns with your internal PD. ", label_visibility='collapsed')
-        row.append(feedback)
+        feedback_score = st.text_area('Circularity Risk Score', placeholder="Does the Circularity Risk Score match with your expectations of the risk of this company? How does it compare with the internal PD? Would you, based on the outcome from this scorecard, adjust the PD?")
+        feedback_drivers = st.text_area('Risk Drivers', placeholder="Are there any risk drivers that you missed when filling in the scorecard?")
+        feedback_UI = st.text_area('User-friendliness', placeholder="How easy was it to understand and fill in the scorecard?")
+        feedback_open = st.text_area('Other feedback', placeholder='Please provide here any other feedback.')
+        row.append(feedback_score)
+        row.append(feedback_drivers)
+        row.append(feedback_UI)
+        row.append(feedback_open)
 
         # Add variable text input to row
         row.extend(text_row)
@@ -542,7 +571,7 @@ if __name__ == '__main__':
         ) 
 
         st.markdown("**Circularity score**: The form will show the determined circularity score,\
-                     which lies between 0 (lowest) and 100 (good). Please fill in your \
+                     which lies between 0 (no risk) and 100 (high risk). Please fill in your \
                     internal Probability of Default for comparison.")
 
 #####################################################################################  
@@ -570,7 +599,10 @@ if __name__ == '__main__':
             plot_weights(weights_df_init[['Risk Factor', 'Sub score Risk', 'Sub score Bus Dev', 'Sub score Finance', 'Sub score Invest']])
             
     # Create logo header
-    image_path = 'Images/Logos1.png'
+    st.text(' ')
+    st.text(' ')
+    st.subheader('This dashboard was realized by:')
+    image_path = 'Images/Logos2.png'
     load_images(image_path)
 
 
