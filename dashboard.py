@@ -137,7 +137,7 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
             inputs = [None]*len(variables)
             inputs_text = [None]*len(variables)
 
-            # Loop over variables'
+            # Loop over variables
             min_score_rel = 0
             max_score = 0
             scored_points = 0
@@ -176,6 +176,7 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
 
     return score_rel, score_rel_text, inputs, inputs_text, overwrite, overwrite_text
 
+
 @st.cache_data
 def generate_help(options: list[str], examples: list[str]) -> str:
     """
@@ -201,6 +202,7 @@ def generate_help(options: list[str], examples: list[str]) -> str:
         help_string += '\n\n' 
     
     return help_string
+
 
 @st.cache_data
 def convert_range(value: float, min_original: float, max_original: float, \
@@ -328,6 +330,7 @@ def apply_weights(weights_df: pd.DataFrame, risk_driver: str, value: float) -> f
 
     return weighted_value
 
+
 @st.cache_data
 def plot_weights(weights_df_plot: pd.DataFrame) -> None:
     """
@@ -373,13 +376,21 @@ def plot_weights(weights_df_plot: pd.DataFrame) -> None:
 
     return 
 
+def select_bank(banks, urls):
+
+    chosen_bank = st.radio('Filled in by which bank', options=banks)
+
+    bank_index = banks.index(chosen_bank)
+    bank_url = urls[bank_index]
+
+    return bank_url
+    
 
 #### main ##################################################################################################
 if __name__ == '__main__':
 
-    # Create logo header
-    image_path = 'Images/Logos1.png'
-    load_images(image_path)
+    # Title
+    st.title('Circular Scorecard')
 
     # Create tabs
     tab1, tab2, tab3, tab4 = st.tabs(["Scorecard", "Read before use", "Peak extraction years", "Distribution of expert weights"])
@@ -397,23 +408,27 @@ if __name__ == '__main__':
     time = datetime.datetime.now(tz=pytz.timezone('Europe/Amsterdam')).time().replace(microsecond=0)
     version = 'v0.61'
 
+    # Lists of banks and corresponding urls to sheets
+    banks = ['Bank 1', 'Bank 2']
+    urls = ['sheet_url', 'sheet_url_2']
+
 #####################################################################################  
 # Scorecard tab
 #####################################################################################  
     with tab1:
+        # Create name and company input fields
+        st.header('Fill in details')
+        sheet = select_bank(banks, urls)
+        user = st.text_input(label='Filled in by', placeholder='Your name/company', key='name_key')
+        client_company = st.text_input(label='Filled in for', placeholder='Name/company for which to determine a risk score', key='client_key')
 
         # Try to open sheet
         try:
             client = gspread.authorize(credentials)
-            sheets_url = st.secrets["sheet_url"]
+            sheets_url = st.secrets[sheet]
             sh = client.open_by_url(sheets_url)
         except:
             st.error('Please check your internet connection. If this is not the issue, the connection to the sheet is lost.', icon="🚨")
-
-        # Create name and company input fields
-        st.header('Fill in details')
-        user = st.text_input(label='Filled in by', placeholder='Your name/company', key='name_key')
-        client_company = st.text_input(label='Filled in for', placeholder='Name/company for which to determine a risk score', key='client_key')
 
         # Store general information
         row = [str(date), str(time), version, user, client_company]
@@ -554,7 +569,9 @@ if __name__ == '__main__':
             # Plot weights distribution
             plot_weights(weights_df_init[['Risk Factor', 'Sub score Risk', 'Sub score Bus Dev', 'Sub score Finance', 'Sub score Invest']])
             
-
+    # Create logo header
+    image_path = 'Images/Logos1.png'
+    load_images(image_path)
 
 
 
