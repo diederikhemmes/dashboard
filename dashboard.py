@@ -102,7 +102,7 @@ def load_peak_data(filepath_peaks: str) -> pd.DataFrame:
 
     
 def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
-    -> tuple[float, str, list[float], list[str], float, str, str]:
+    -> tuple[float, str, list[float], list[str], float, str, str, float]:
     """
     Calculate risk driver scores and provide user interface for customization.
 
@@ -123,7 +123,8 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
             - A list of selected text score per variable.
             - The selected overwrite score.
             - The selected overwrite option in text.
-            - The motivation of choosing an overwrite
+            - The motivation of choosing an overwrite.
+            - The lowest possible relative score for the risk driver. 
     """
 
     # Define column width
@@ -184,7 +185,7 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
         if not motivation:
             st.error('Please provide a motivation before you continue', icon="🚨")
 
-    return score_rel, score_rel_text, inputs, inputs_text, overwrite, overwrite_text, motivation
+    return score_rel, score_rel_text, inputs, inputs_text, overwrite, overwrite_text, motivation, min_score_rel
 
 
 @st.cache_data
@@ -353,7 +354,6 @@ def plot_weights(weights_df_plot: pd.DataFrame) -> None:
     Returns:
         None
     """
-    plt.style.use('tableau-colorblind10')   
 
     # Normalize expert points
     column_sums = weights_df_plot.sum()
@@ -372,6 +372,7 @@ def plot_weights(weights_df_plot: pd.DataFrame) -> None:
     x = np.arange(len(indices))
 
     # Plotting the bar chart 
+    plt.style.use('tableau-colorblind10')   
     fig, ax = plt.subplots(figsize=(10,5))
     for i, column in enumerate(columns):
         ax.bar(x + i * width, normalized_df[column], width=width, label=column) 
@@ -387,37 +388,44 @@ def plot_weights(weights_df_plot: pd.DataFrame) -> None:
     return 
 
 
-def select_bank(banks: list[str], urls: list[str]) -> str:
+@st.cache_data
+def stacked_bar_chart(data: list[float], labels: list[str]) -> None:
     """
-    Selects a bank and retrieves its corresponding URL based on user input.
+    Generate a horizontal stacked bar chart for a single list of values using Matplotlib.
 
-    This function presents a radio button selection interface to the user,
-    allowing them to choose a bank from the provided list. The selected bank's
-    URL is then determined using its index in the list and retrieved from the
-    'urls' parameter.
+    Parameters:
+        data (list[float]): A list of values to create the stacked bar chart.
+        data (list[str]): A list of labels to use the stacked bar chart.
 
-    Args:
-        banks (list[str]): A list of strings representing the available bank options.
-        urls (list[str]): A list of strings representing the URLs corresponding to the banks.
-
-    Returns:
-        str: The URL associated with the selected bank.
+    Example:
+    data = [20.5, 15.2, 7.3, 12.8]
+    horizontal_stacked_bar(data)
     """
-    # Create UI
-    chosen_bank = st.radio('Filled in by which bank', options=banks)
 
-    # Select URL based on chosen bank
-    bank_index = banks.index(chosen_bank)
-    bank_url = urls[bank_index]
+    # Plotting the bar chart 
+    plt.style.use('tableau-colorblind10')   
+    fig, ax = plt.subplots(figsize=(8, 2))
+    left = np.zeros(len(labels))
+    for i, value in enumerate(data):
+        ax.barh([0], value, left=left, label=labels[i])
+        left += value
+        
+    # Adding labels, legend, and title 
+    ax.set_xlabel("Points", fontsize=14)
+    ax.set_xlim(0, sum(data)+3)
+    ax.set_title("Build-up of score", fontsize=16)
+    ax.set_xticklabels(ax.get_xticklabels(), fontsize=12)
+    ax.axes.get_yaxis().set_visible(False)
+    ax.legend(loc="center left", bbox_to_anchor=(1, 0.5), fontsize=12)
 
-    return bank_url
-    
+    st.pyplot(fig)
+
 
 #### main ##################################################################################################
 if __name__ == '__main__':
 
     # Title
-    st.title('Circular Scorecard')
+    st.title('Circular Risk Scorecard')
 
     # Create tabs
     tab1, tab2, tab3, tab4 = st.tabs(["Scorecard", "Read before use", "Peak extraction years", "Distribution of expert weights"])
@@ -436,8 +444,7 @@ if __name__ == '__main__':
     version = 'v0.61'
 
     # Lists of banks and corresponding urls to sheets
-    banks = ['Bank 1', 'Bank 2']
-    urls = ['sheet_url', 'sheet_url_2']
+    banks = ['ABN AMRO', 'Rabobank', 'ING', 'Other']
 
 #####################################################################################  
 # Scorecard tab
@@ -445,11 +452,15 @@ if __name__ == '__main__':
     with tab1:
         # Create name and company input fields
         st.header('Fill in details')
-        sheet = select_bank(banks, urls)
-        user = st.text_input(label='Filled in by', placeholder='Your name/company', key='name_key')
+        chosen_bank = st.radio('Filled in by which bank', options=banks)
+        if chosen_bank == "Other":
+            custom_option = st.text_input("Filled in by which bank:", placeholder='Bank name')
+            chosen_bank = custom_option
+        user = st.text_input(label='Filled in by', placeholder='Your name/company department', key='name_key')
         client_company = st.text_input(label='Filled in for', placeholder='Name/company for which to determine a risk score', key='client_key')
-        
+
         # Try to open sheet
+        sheet = 'sheet_url'
         try:
             client = gspread.authorize(credentials)
             sheets_url = st.secrets[sheet]
@@ -458,7 +469,7 @@ if __name__ == '__main__':
             st.error('Please check your internet connection. If this is not the issue, the connection to the sheet is lost.', icon="🚨")
 
         # Store general information
-        row = [str(date), str(time), version, user, client_company]
+        row = [str(date), str(time), version, chosen_bank, user, client_company]
         text_row = [] # Row for storing variable selections in text
         info_columns = len(row)
 
@@ -466,7 +477,7 @@ if __name__ == '__main__':
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size = 20)
-        pdf.cell(200, 30, txt = 'Circularity Scorecard Summary', ln = 1, align = 'C')
+        pdf.cell(200, 30, txt = 'Circular Risk Scorecard Summary', ln = 1, align = 'C')
         pdf.set_font("Arial", size = 14)
         pdf.cell(200, 10, txt = 'Filled in by: ' + user, ln = 1, align = 'L')
         pdf.cell(200, 5, txt = 'Filled in for: ' + client_company, ln = 1, align = 'L')
@@ -490,11 +501,18 @@ if __name__ == '__main__':
         # Create dropdown for each risk driver
         rd_number = 1
         risk_scores = []
+        risk_drivers = []
+        point_list = []
         for name, rd in drivers_df.groupby('Risk Driver', sort=False):
-            risk, risk_text, inputs, inputs_text, overwrite, overwrite_text, motivation = riskDriver(rd, name, rd_number)
+            risk_drivers.append(name)
+            risk, risk_text, inputs, inputs_text, overwrite, overwrite_text, motivation, min_score_rel = riskDriver(rd, name, rd_number)
             
-            # Apply expert weight
+            # Apply expert weights
             weighted_risk = apply_weights(weights_df, name, risk)
+            weighted_min = apply_weights(weights_df, name, min_score_rel)
+            weighted_max = apply_weights(weights_df, name, 1)
+            points = convert_range(weighted_risk, min_original=weighted_min, max_original=weighted_max, min_new=weighted_max*100, max_new=0)
+            point_list.append(points)
 
             # Store risk driver information in csv row
             risk_scores.append(weighted_risk)
@@ -534,12 +552,15 @@ if __name__ == '__main__':
         # Display final score and insert to correct column
         col1, col2 = st.columns([3,2])
         with col1:
-            st.metric('Circularity Risk Score: ', str(round(normalized_final_score)) + ' / 100')
+            st.metric('Circular Risk Score (low score = low risk): ', str(round(normalized_final_score)) + ' / 100')
             st.progress(round(normalized_final_score, 1)/100)
-
+        # Request internal PD
         with col2:
             internal_score = st.number_input('Internal PD (0.0100 = 1%)', min_value=0.000, max_value=1.000, step=0.0001, format="%.4f")
         
+        # Show stacked bar chart of score build-up
+        stacked_bar_chart(point_list, risk_drivers)
+
         # Store scorecard score and internal PD
         row.insert(info_columns, normalized_final_score)
         row.insert(info_columns+1, internal_score)
@@ -549,7 +570,7 @@ if __name__ == '__main__':
 
         st.header('Feedback and submit')
 
-        # Request feedback
+        # Request feedback and store in row
         feedback_score = st.text_area('Circularity Risk Score', placeholder="Does the Circularity Risk Score match with your expectations of the risk of this company? How does it compare with the internal PD? Would you, based on the outcome from this scorecard, adjust the PD?")
         feedback_drivers = st.text_area('Risk Drivers', placeholder="Are there any risk drivers that you missed when filling in the scorecard?")
         feedback_UI = st.text_area('User-friendliness', placeholder="How easy was it to understand and fill in the scorecard?")
