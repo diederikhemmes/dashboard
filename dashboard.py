@@ -19,6 +19,7 @@ from google.oauth2 import service_account
 import matplotlib.pyplot as plt
 import numpy as np
 from fpdf import FPDF
+import tempfile
 
 @st.cache_data
 def load_images(image_path: str) -> None:
@@ -101,7 +102,7 @@ def load_peak_data(filepath_peaks: str) -> pd.DataFrame:
 
     
 def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
-    -> tuple[float, str, list[float], list[str], float, str]:
+    -> tuple[float, str, list[float], list[str], float, str, str]:
     """
     Calculate risk driver scores and provide user interface for customization.
 
@@ -115,13 +116,14 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
         number (int): Sequential number of the risk driver.
 
     Returns:
-        tuple[float, str, list[float], list[str], float, str]: A tuple containing:
+        tuple[float, str, list[float], list[str], float, str, str]: A tuple containing:
             - The calculated normalized score for the risk driver.
             - The score in text.
             - A list of normalized scores for variables.
             - A list of selected text score per variable.
             - The selected overwrite score.
             - The selected overwrite option in text.
+            - The motivation of choosing an overwrite
     """
 
     # Define column width
@@ -176,12 +178,13 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
             overwrite = True
 
     # Provide a motivation for the overwrite
+    motivation = None
     if overwrite:
         motivation = st.text_area(label='Overwrite motivation', placeholder='Please motivate why you selected an overwrite for this risk driver.', key=number)
         if not motivation:
             st.error('Please provide a motivation before you continue', icon="🚨")
 
-    return score_rel, score_rel_text, inputs, inputs_text, overwrite, overwrite_text
+    return score_rel, score_rel_text, inputs, inputs_text, overwrite, overwrite_text, motivation
 
 
 @st.cache_data
@@ -208,12 +211,12 @@ def generate_help(options: list[str], examples: list[str]) -> str:
         help_string += examples[n]
         help_string += '\n\n' 
     
-    return help_string
+    return help_string 
 
 
 @st.cache_data
 def convert_range(value: float, min_original: float, max_original: float, \
-                  min_new: float, max_new:float) -> float:
+                  min_new: float, max_new:float) -> float: 
     """
     Convert a value from one range to another range.
 
@@ -488,7 +491,7 @@ if __name__ == '__main__':
         rd_number = 1
         risk_scores = []
         for name, rd in drivers_df.groupby('Risk Driver', sort=False):
-            risk, risk_text, inputs, inputs_text, overwrite, overwrite_text = riskDriver(rd, name, rd_number)
+            risk, risk_text, inputs, inputs_text, overwrite, overwrite_text, motivation = riskDriver(rd, name, rd_number)
             
             # Apply expert weight
             weighted_risk = apply_weights(weights_df, name, risk)
@@ -501,6 +504,7 @@ if __name__ == '__main__':
             text_row.extend(inputs_text)
             text_row.append(risk_text)
             text_row.append(overwrite_text)
+            text_row.append(motivation)
 
             # Store risk driver information in PDF
             variables = rd['Variable'].unique().tolist()
@@ -508,11 +512,12 @@ if __name__ == '__main__':
             pdf.set_font("Arial", size = 12)
             if overwrite: 
                 pdf.cell(200, 10, txt = overwrite_text, ln = 1, align = 'L')
+                pdf.cell(200, 10, txt = 'Overwrite motivation: ' + motivation, ln = 1, align = 'L')
             else:
                 for n, i in enumerate(inputs_text):
-                    pdf.cell(200, 10, txt = variables[n]  + ':', ln = 1, align = 'L')
+                    pdf.multi_cell(200, 5, txt = variables[n]  + ':', align = 'L')
                     pdf.set_font("Arial", size = 10)
-                    pdf.cell(200, 5, txt = '   ' + i, ln = 1, align = 'L')
+                    pdf.cell(200, 10, txt = '   ' + i, ln = 1, align = 'L')
                     pdf.set_font("Arial", size = 12)
                 pdf.cell(200, 10, txt='Risk Driver score: ' + risk_text , ln = 1, align = 'L')
             pdf.set_font("Arial", size = 14)
@@ -529,7 +534,7 @@ if __name__ == '__main__':
         # Display final score and insert to correct column
         col1, col2 = st.columns([3,2])
         with col1:
-            st.metric('Circularity Risk Score: ', str(round(normalized_final_score, 1)) + ' / 100')
+            st.metric('Circularity Risk Score: ', str(round(normalized_final_score)) + ' / 100')
             st.progress(round(normalized_final_score, 1)/100)
 
         with col2:
@@ -540,7 +545,7 @@ if __name__ == '__main__':
         row.insert(info_columns+1, internal_score)
         row.extend([finance_weight, risk_weight, invest_weight, busdev_weight])
         pdf.set_font("Arial", size = 20)
-        pdf.cell(200, 30, txt = 'Final Circularity Risk Score: ' + str(round(normalized_final_score, 1)) + ' / 100', ln = 1, align = 'C')
+        pdf.cell(200, 30, txt = 'Final Circularity Risk Score: ' + str(round(normalized_final_score)) + ' / 100', ln = 1, align = 'C')
 
         st.header('Feedback and submit')
 
@@ -562,9 +567,10 @@ if __name__ == '__main__':
         row.insert(info_columns, test)
 
         # Download data as PDF
-        pdf.output("output.pdf")
-        with open("output.pdf", "rb") as f:
-            st.download_button(label='Download scorecard as PDF', data=f.read(), file_name=client_company+'_scorecard.pdf', mime='text/csv')
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tf:
+            pdf.output(tf.name)
+        with open(tf.name, "rb") as f:
+            st.download_button(label='Download scorecard as PDF', data=f.read(), file_name=client_company+' scorecard.pdf', mime='text/csv')
 
         # Submit data to google sheet
         send = st.button("Submit")
