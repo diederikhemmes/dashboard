@@ -126,7 +126,6 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
             - The motivation of choosing an overwrite.
             - The lowest possible relative score for the risk driver. 
     """
-
     # Define column width
     col1, col2 = st.columns([10, 5])
 
@@ -146,14 +145,17 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
             max_score = 0
             scored_points = 0
             for i, v in enumerate(variables):
+                # Generate dropdown and help information
                 options = riskdriver_groupby[riskdriver_groupby['Variable']==v]['Answers'].tolist()
                 examples = riskdriver_groupby[riskdriver_groupby['Variable']==v]['Example'].tolist()
                 string = generate_help(options, examples)
                 choice = st.selectbox(v, options, help=string)
 
-                # Determine score for variable (v)
+                # Determine risk score for variable (v)
                 v_score = options.index(choice) + 1
                 v_score_rel = v_score / len(options)
+                
+                # Store variable score and which option was chosen for variable
                 inputs[i] = v_score_rel
                 inputs_text[i] = choice
                 scored_points += v_score
@@ -165,12 +167,16 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
             score_rel = score / len(variables)
             min_score_rel = min_score_rel / len(variables)
             score_rel_text = overwrites_init[round(scored_points/max_score*(len(overwrites_init)))-1]
+
+            # Add risk driver score to top of overwrite box
             overwrites.insert(0, score_rel_text)
 
-    # Create input box for overwriting risk driver score
+    # Create dropdown for overwriting risk driver score
     with col2:
         overwrite = False
         overwrite_text = st.selectbox('Overwrite', overwrites, label_visibility='collapsed')
+        
+        # Overwrite risk score if overwrite is selected
         if overwrite_text != score_rel_text:
             score = overwrites.index(overwrite_text) 
             score_rel_overwrite = score / (len(overwrites_init))
@@ -182,6 +188,8 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
     motivation = None
     if overwrite:
         motivation = st.text_area(label='Overwrite motivation', placeholder='Please motivate why you selected an overwrite for this risk driver.', key=number)
+        
+        # Display error if no motivation is provided
         if not motivation:
             st.error('Please provide a motivation before you continue', icon="🚨")
 
@@ -205,6 +213,8 @@ def generate_help(options: list[str], examples: list[str]) -> str:
         str: A formatted help string containing option names and examples.
     """ 
     help_string = 'These are examples of the answers: \n\n' 
+
+    # Provide an example for each option
     for n, t in enumerate(options):
         help_string += t
         help_string += ': '
@@ -263,7 +273,6 @@ def prepare_weights(weights_df: pd.DataFrame, finance_weight: bool, risk_weight:
     Returns:
         pd.DataFrame: A DataFrame containing calculated weights for each risk driver.
     """
-   
     # Retrieve which weights are selected
     selected_groups = []
     if finance_weight:
@@ -281,6 +290,7 @@ def prepare_weights(weights_df: pd.DataFrame, finance_weight: bool, risk_weight:
     total_points = weights_df['Sum'].sum()
     weights_df['Weight'] = weights_df['Sum'] / total_points
 
+    # Display expert weights dataframe
     # st.dataframe(weights_df)
 
     return weights_df 
@@ -306,11 +316,11 @@ def create_weights_UI() -> tuple[bool, bool, bool, bool]:
     with col1:
         finance_weight = st.checkbox('Finance', value=True)
     with col2:
-        risk_weight = st.checkbox('Risk', value=True)
+        risk_weight = st.checkbox('Risk', value=False)
     with col3:
-        invest_weight = st.checkbox('Invest', value=True)
+        invest_weight = st.checkbox('Invest', value=False)
     with col4:
-        busdev_weight = st.checkbox('Business Development', value=True)
+        busdev_weight = st.checkbox('Business Development', value=False)
 
     # At least one of the weights should be selected, display error if not
     if not any([finance_weight, risk_weight, invest_weight, busdev_weight]):
@@ -335,8 +345,10 @@ def apply_weights(weights_df: pd.DataFrame, risk_driver: str, value: float) -> f
     Returns:
         float: The value after applying the specified weight.
     """
-    # Obtain and apply weight
+    # Obtain corresponding weight
     weight = weights_df.loc[weights_df['Risk Factor'] == risk_driver, 'Weight'].values[0]
+
+    # Apply weight 
     weighted_value = value * weight
 
     return weighted_value
@@ -354,7 +366,6 @@ def plot_weights(weights_df_plot: pd.DataFrame) -> None:
     Returns:
         None
     """
-
     # Normalize expert points
     column_sums = weights_df_plot.sum()
     normalized_df = weights_df_plot.iloc[:, 1:].div(column_sums, axis=1)
@@ -383,6 +394,7 @@ def plot_weights(weights_df_plot: pd.DataFrame) -> None:
     ax.set_ylabel('Fraction of points', fontsize=14)
     ax.legend()
 
+    # Show figure in dashboard
     st.pyplot(fig)
 
     return 
@@ -397,11 +409,9 @@ def stacked_bar_chart(data: list[float], labels: list[str]) -> None:
         data (list[float]): A list of values to create the stacked bar chart.
         data (list[str]): A list of labels to use the stacked bar chart.
 
-    Example:
-    data = [20.5, 15.2, 7.3, 12.8]
-    horizontal_stacked_bar(data)
+    Returns:
+        None
     """
-
     # Plotting the bar chart 
     plt.style.use('tableau-colorblind10')   
     fig, ax = plt.subplots(figsize=(8, 2))
@@ -418,16 +428,19 @@ def stacked_bar_chart(data: list[float], labels: list[str]) -> None:
     ax.axes.get_yaxis().set_visible(False)
     ax.legend(loc="center left", bbox_to_anchor=(1, 0.5), fontsize=12)
 
+    # Show figure in dashboard
     st.pyplot(fig)
+
+    return
 
 
 #### main ##################################################################################################
 if __name__ == '__main__':
 
-    # Title
+    # Scorecard title
     st.title('Circular Risk Scorecard')
 
-    # Create tabs
+    # Create dashboard tabs
     tab1, tab2, tab3, tab4 = st.tabs(["Scorecard", "Read before use", "Peak extraction years", "Distribution of expert weights"])
 
     # Set up the scope and credentials to Google Sheet
@@ -438,39 +451,47 @@ if __name__ == '__main__':
         ],
     )
 
+    # Sheet link name in secrets.toml
+    sheet = 'sheet_url' 
+
+    # Try to open Google Sheet
+    try:
+        client = gspread.authorize(credentials)
+        sheets_url = st.secrets[sheet]
+        sh = client.open_by_url(sheets_url)
+
+    # Display error if opening sheet fails
+    except:
+        st.error('Please check your internet connection. If this is not the issue, the connection to the sheet is lost.', icon="🚨")
+
     # Obtain general information
     date = datetime.datetime.now(tz=pytz.timezone('Europe/Amsterdam')).date()
     time = datetime.datetime.now(tz=pytz.timezone('Europe/Amsterdam')).time().replace(microsecond=0)
     version = 'v0.61'
 
-    # Lists of banks and corresponding urls to sheets
+    # Lists of banks 
     banks = ['ABN AMRO', 'Rabobank', 'ING', 'Other']
 
 #####################################################################################  
 # Scorecard tab
 #####################################################################################  
     with tab1:
-        # Create name and company input fields
+        
         st.header('Fill in details')
+
+        # Create bank selection interface
         chosen_bank = st.radio('Filled in by which bank', options=banks)
         if chosen_bank == "Other":
             custom_option = st.text_input("Filled in by which bank:", placeholder='Bank name')
             chosen_bank = custom_option
+
+        # Create name and company input fields
         user = st.text_input(label='Filled in by', placeholder='Your name/company department', key='name_key')
         client_company = st.text_input(label='Filled in for', placeholder='Name/company for which to determine a risk score', key='client_key')
 
-        # Try to open sheet
-        sheet = 'sheet_url'
-        try:
-            client = gspread.authorize(credentials)
-            sheets_url = st.secrets[sheet]
-            sh = client.open_by_url(sheets_url)
-        except:
-            st.error('Please check your internet connection. If this is not the issue, the connection to the sheet is lost.', icon="🚨")
-
         # Store general information
         row = [str(date), str(time), version, chosen_bank, user, client_company]
-        text_row = [] # Row for storing variable selections in text
+        text_row = [] # Row for storing variable selections in text format
         info_columns = len(row)
 
         # Set up PDF for storing input
@@ -482,19 +503,19 @@ if __name__ == '__main__':
         pdf.cell(200, 10, txt = 'Filled in by: ' + user, ln = 1, align = 'L')
         pdf.cell(200, 5, txt = 'Filled in for: ' + client_company, ln = 1, align = 'L')
 
-        # Create expert weight selection UI
-        finance_weight, risk_weight, invest_weight, busdev_weight = create_weights_UI()
-
         # Read in expert weights file 
         filepath_weights = 'Data/Expert_weights.xlsx'
         weights_df_init = load_expert_data(filepath_weights)
+
+        # Create expert weight selection UI
+        finance_weight, risk_weight, invest_weight, busdev_weight = create_weights_UI()
 
         # Prepare weights based on selected expert groups
         weights_df = prepare_weights(weights_df_init, finance_weight, risk_weight, invest_weight, busdev_weight)
 
         st.header('Score risk factors')
 
-        # Read in risk driver file
+        # Read in risk drivers file
         filepath_risk = 'Data/Risk_drivers.xlsx'
         drivers_df = load_drivers_data(filepath_risk)
 
@@ -505,16 +526,20 @@ if __name__ == '__main__':
         point_list = []
         for name, rd in drivers_df.groupby('Risk Driver', sort=False):
             risk_drivers.append(name)
+            
+            # Create dropdown and overwrite option
             risk, risk_text, inputs, inputs_text, overwrite, overwrite_text, motivation, min_score_rel = riskDriver(rd, name, rd_number)
             
             # Apply expert weights
             weighted_risk = apply_weights(weights_df, name, risk)
+
+            # Store risk driver score scale for plotting buildup of final score
             weighted_min = apply_weights(weights_df, name, min_score_rel)
             weighted_max = apply_weights(weights_df, name, 1)
             points = convert_range(weighted_risk, min_original=weighted_min, max_original=weighted_max, min_new=weighted_max*100, max_new=0)
             point_list.append(points)
 
-            # Store risk driver information in csv row
+            # Store risk driver information in row for sheet
             risk_scores.append(weighted_risk)
             row.extend(inputs)
             row.append(risk)
@@ -542,36 +567,39 @@ if __name__ == '__main__':
                 
             rd_number += 1
 
-        st.header('Determine final risk score')
+        st.header('Determine final Circular Risk score')
         
         # Determine final score and convert in on scale 0 to 100
         final_score = sum(risk_scores)
-        min_score = 0.266246 # Lowest score possible when filling in form
+        min_score = 0.266246 # Lowest score possible when filling in form (select only expert group 'Finance')
         normalized_final_score = convert_range(final_score, min_original=min_score, max_original=1, min_new=100, max_new=0)
 
-        # Display final score and insert to correct column
+        # Display final circular risk score 
         col1, col2 = st.columns([3,2])
         with col1:
-            st.metric('Circular Risk Score (low score = low risk): ', str(round(normalized_final_score)) + ' / 100')
+            st.metric('Circular Risk score (low score = low risk): ', str(round(normalized_final_score)) + ' / 100')
             st.progress(round(normalized_final_score, 1)/100)
+
         # Request internal PD
         with col2:
-            internal_score = st.number_input('Internal PD (0.0100 = 1%)', min_value=0.000, max_value=1.000, step=0.0001, format="%.4f")
+            internal_score = st.number_input('Internal PD (0.0100 = 1%)', value=1., min_value=0.000, max_value=1.000, step=0.0001, format="%.4f")
         
-        # Show stacked bar chart of score build-up
+        # Show stacked bar chart of circular risk score build-up
         stacked_bar_chart(point_list, risk_drivers)
 
-        # Store scorecard score and internal PD
+        # Store circular risk score and internal PD to row for sheet
         row.insert(info_columns, normalized_final_score)
         row.insert(info_columns+1, internal_score)
         row.extend([finance_weight, risk_weight, invest_weight, busdev_weight])
+
+        # Store circular risk score to PDF
         pdf.set_font("Arial", size = 20)
-        pdf.cell(200, 30, txt = 'Final Circularity Risk Score: ' + str(round(normalized_final_score)) + ' / 100', ln = 1, align = 'C')
+        pdf.cell(200, 30, txt = 'Final Circular Risk Score: ' + str(round(normalized_final_score)) + ' / 100', ln = 1, align = 'C')
 
         st.header('Feedback and submit')
 
-        # Request feedback and store in row
-        feedback_score = st.text_area('Circularity Risk Score', placeholder="Does the Circularity Risk Score match with your expectations of the risk of this company? How does it compare with the internal PD? Would you, based on the outcome from this scorecard, adjust the PD?")
+        # Request feedback and store in row for sheet
+        feedback_score = st.text_area('Circular Risk Score', placeholder="Does the Circularity Risk Score match with your expectations of the risk of this company? How does it compare with the internal PD? Would you, based on the outcome from this scorecard, adjust the PD?")
         feedback_drivers = st.text_area('Risk Drivers', placeholder="Are there any risk drivers that you missed when filling in the scorecard?")
         feedback_UI = st.text_area('User-friendliness', placeholder="How easy was it to understand and fill in the scorecard?")
         feedback_open = st.text_area('Other feedback', placeholder='Please provide here any other feedback.')
@@ -580,20 +608,20 @@ if __name__ == '__main__':
         row.append(feedback_UI)
         row.append(feedback_open)
 
-        # Add variable text input to row
+        # Add variable text input to row for sheet
         row.extend(text_row)
 
-        # Create test box
+        # Create dashboard test box
         test = st.checkbox('Please select this box if you are testing the dashboard', value=False)
         row.insert(info_columns, test)
 
-        # Download data as PDF
+        # Create button to download data as PDF
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tf:
             pdf.output(tf.name)
         with open(tf.name, "rb") as f:
             st.download_button(label='Download scorecard as PDF', data=f.read(), file_name=client_company+' scorecard.pdf', mime='text/csv')
 
-        # Submit data to google sheet
+        # Create button to submit data to google sheet
         send = st.button("Submit")
         if send:    
             st.success('Risk score submitted!')
@@ -604,7 +632,7 @@ if __name__ == '__main__':
 #####################################################################################  
     with tab2:
         st.header('Background')
-        st.markdown("""This dashboard outputs a circularity score given input parameters corresponding \
+        st.markdown("""This dashboard outputs a circular risk score given input parameters corresponding \
                     to a circular economy company. This score can be used as a decision factor in deciding \
                     which circular economy deals are accepted or rejected by, for example, banks. In addition, \
                     the dashboard can give insight into which risk factors are important in making these kinds \
@@ -614,6 +642,12 @@ if __name__ == '__main__':
         st.markdown('**Names**: It is possible to use dummy names for the \'filled \
                      in by\' and \'filled in for\' fields.')
         
+        st.markdown("**Expert weights**: Different groups of experts distributed points over \
+                    the different risk drivers. It is possible to select expert groups to weight \
+                    the circular score. The weight distribution is visualized in the \
+                    \'Distribution of expert weights\' tab."
+        ) 
+       
         st.markdown("""**Scoring risk drivers**: The scorecard contains six risk drivers, \
                     each with multiple variables. Place your mouse on the question mark icon for \
                     examples of how to rate a company. """
@@ -621,16 +655,10 @@ if __name__ == '__main__':
 
         st.markdown("""**Overwrite risk score**: If you are unsure about how to rate the \
                     variables, it is possible to provide an overwrite for the risk driver \
-                    score. This overwrite replaces the score determined on the separate variables, \
+                    score. This overwrite replaces the score determined using the separate variables, \
                     which is displayed as the first option in the selection box.""")
 
-        st.markdown("**Expert weights**: Different groups of experts distributed points over \
-                    the different risk drivers. It is possible to select expert groups to weight \
-                    the circular score. The weight distribution is visualized in the \
-                    \'Distribution of expert weights\' tab."
-        ) 
-
-        st.markdown("**Circularity score**: The form will show the determined circularity score,\
+        st.markdown("**Circular risk score**: The form will show the determined circular risk score,\
                      which lies between 0 (no risk) and 100 (high risk). Please fill in your \
                     internal Probability of Default for comparison.")
 
@@ -657,6 +685,8 @@ if __name__ == '__main__':
             
             # Plot weights distribution
             plot_weights(weights_df_init[['Risk Factor', 'Sub score Risk', 'Sub score Bus Dev', 'Sub score Finance', 'Sub score Invest']])
+
+#####################################################################################   
             
     # Create logo header
     st.text(' ')
