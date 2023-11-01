@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # Title: Circularity Score Dashboard
-# Author: Iris Reitsma
-# Date: August 23, 2023
+# Author: Iris Reitsma, Diederik Hemmes
+# Date: November 1, 2023
 # Description: This script creates a streamlit dashboard. This dashboard calculates 
 #   a circularity score given input parameters corresponding to a circular economy 
 #   company. A user can select which expert input to incorporate in the calculation,
