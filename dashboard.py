@@ -413,7 +413,8 @@ def stacked_bar_chart(data: list[float], labels: list[str]) -> None:
         None
     """
     # Plotting the bar chart 
-    plt.style.use('tableau-colorblind10')   
+    # plt.style.use('tableau-colorblind10')   
+    plt.style.use('seaborn-v0_8-muted')   
     fig, ax = plt.subplots(figsize=(8, 2))
     left = np.zeros(len(labels))
     for i, value in enumerate(data):
