@@ -510,7 +510,7 @@ if __name__ == '__main__':
 
         # Create expert weight selection UI
         # finance_weight, risk_weight, invest_weight, busdev_weight = create_weights_UI()
-        finance_weight, risk_weight, invest_weight, busdev_weight = True
+        finance_weight = risk_weight = invest_weight = busdev_weight = True
 
         # Prepare weights based on selected expert groups
         weights_df = prepare_weights(weights_df_init, finance_weight, risk_weight, invest_weight, busdev_weight)
