@@ -479,16 +479,17 @@ if __name__ == '__main__':
         
         st.header('Fill in details')
 
-        # Create bank selection interface
-        chosen_bank = st.radio('Filled in by which bank', options=banks)
-        if chosen_bank == "Other":
-            custom_option = st.text_input("Filled in by which bank:", placeholder='Bank name')
-            chosen_bank = custom_option
+        # # Create bank selection interface
+        # chosen_bank = st.radio('Filled in by which bank', options=banks)
+        # if chosen_bank == "Other":
+        #     custom_option = st.text_input("Filled in by which bank:", placeholder='Bank name')
+        #     chosen_bank = custom_option
 
         # Create name and company input fields
         user = st.text_input(label='Filled in by', placeholder='Your name/company department', key='name_key')
         client_company = st.text_input(label='Filled in for', placeholder='Name/company for which to determine a risk score', key='client_key')
 
+        chosen_bank = ""
         # Store general information
         row = [str(date), str(time), version, chosen_bank, user, client_company]
         text_row = [] # Row for storing variable selections in text format
