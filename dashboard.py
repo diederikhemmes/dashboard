@@ -472,6 +472,9 @@ if __name__ == '__main__':
     # Lists of banks 
     banks = ['ABN AMRO', 'Rabobank', 'ING', 'Other']
 
+    # list of business models
+    business_models = ['Circular Product-as-a-Service (C-PaaS)', 'Other business model']
+
 #####################################################################################  
 # Scorecard tab
 #####################################################################################  
@@ -485,13 +488,17 @@ if __name__ == '__main__':
         #     custom_option = st.text_input("Filled in by which bank:", placeholder='Bank name')
         #     chosen_bank = custom_option
 
+        chosen_bank = ""
+
         # Create name and company input fields
         user = st.text_input(label='Filled in by', placeholder='Your financial institution name or code', key='name_key')
         client_company = st.text_input(label='Filled in for', placeholder='Name or code of company for which to determine a circular risk score', key='client_key')
 
-        chosen_bank = ""
+        # Create business model selection interface
+        chosen_businessmodel = st.radio('Business model', options=business_models)
+
         # Store general information
-        row = [str(date), str(time), version, chosen_bank, user, client_company]
+        row = [str(date), str(time), version, chosen_businessmodel, user, client_company]
         text_row = [] # Row for storing variable selections in text format
         info_columns = len(row)
 
