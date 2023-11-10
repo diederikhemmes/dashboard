@@ -36,7 +36,7 @@ def load_images(image_path: str) -> None:
         None
     """
     logos = Image.open(image_path)
-    st.image(logos)
+    st.image(logos, width=200)
 
     return
 
