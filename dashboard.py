@@ -423,7 +423,7 @@ def stacked_bar_chart(data: list[float], labels: list[str]) -> None:
         
     # Adding labels, legend, and title 
     ax.set_xlabel("Points", fontsize=14)
-    ax.set_xlim(0, sum(data)+3)
+    ax.set_xlim(0, 100)
     ax.set_title("Build-up of score", fontsize=16)
     ax.set_xticklabels(ax.get_xticklabels(), fontsize=12)
     ax.axes.get_yaxis().set_visible(False)
