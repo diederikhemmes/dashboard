@@ -486,8 +486,8 @@ if __name__ == '__main__':
         #     chosen_bank = custom_option
 
         # Create name and company input fields
-        user = st.text_input(label='Filled in by', placeholder='Your name/company department', key='name_key')
-        client_company = st.text_input(label='Filled in for', placeholder='Name/company for which to determine a risk score', key='client_key')
+        user = st.text_input(label='Filled in by', placeholder='Your financial institution name or code', key='name_key')
+        client_company = st.text_input(label='Filled in for', placeholder='Name or code of company for which to determine a circular risk score', key='client_key')
 
         chosen_bank = ""
         # Store general information
@@ -509,7 +509,8 @@ if __name__ == '__main__':
         weights_df_init = load_expert_data(filepath_weights)
 
         # Create expert weight selection UI
-        finance_weight, risk_weight, invest_weight, busdev_weight = create_weights_UI()
+        # finance_weight, risk_weight, invest_weight, busdev_weight = create_weights_UI()
+        finance_weight, risk_weight, invest_weight, busdev_weight = True
 
         # Prepare weights based on selected expert groups
         weights_df = prepare_weights(weights_df_init, finance_weight, risk_weight, invest_weight, busdev_weight)
