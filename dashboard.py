@@ -707,7 +707,7 @@ if __name__ == '__main__':
     st.text(' ')
     st.text(' ')
     st.subheader('This dashboard was realized by:')
-    image_path = 'Images/Logos3.png'
+    image_path = 'Images/Logos4.png'
     load_images(image_path)
 
 
