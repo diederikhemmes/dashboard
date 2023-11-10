@@ -583,8 +583,9 @@ if __name__ == '__main__':
             st.progress(round(normalized_final_score, 1)/100)
 
         # Request internal PD
-        with col2:
-            internal_score = st.number_input('Internal PD (0.0100 = 1%)', value=1., min_value=0.000, max_value=1.000, step=0.0001, format="%.4f")
+        # with col2:
+        #     internal_score = st.number_input('Internal PD (0.0100 = 1%)', value=1., min_value=0.000, max_value=1.000, step=0.0001, format="%.4f")
+        internal_score = ""
         
         # Show stacked bar chart of circular risk score build-up
         stacked_bar_chart(point_list, risk_drivers)
