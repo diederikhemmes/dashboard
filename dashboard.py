@@ -438,8 +438,12 @@ def stacked_bar_chart(data: list[float], labels: list[str]) -> None:
 #### main ##################################################################################################
 if __name__ == '__main__':
 
-    # Scorecard title
-    st.title('Circular Risk Scorecard')
+    col1, col2 = st.columns([4,1])
+    with col1:
+        # Scorecard title
+        st.title('Circular Risk Scorecard')
+    with col2:
+        st.text('version 0.95')
 
     # Create dashboard tabs
     tab1, tab2, tab3, tab4 = st.tabs(["Scorecard", "Read before use", "Peak extraction years", "Distribution of expert weights"])
