@@ -6,7 +6,7 @@
 #   a circularity score given input parameters corresponding to a circular economy 
 #   company. A user can select which expert input to incorporate in the calculation,
 #   and can choose whether to score risk drivers using multiple variables or one
-#   overwrite. 
+#   override. 
 # -----------------------------------------------------------------------------
 
 import streamlit as st
@@ -121,9 +121,9 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
             - The score in text.
             - A list of normalized scores for variables.
             - A list of selected text score per variable.
-            - The selected overwrite score.
-            - The selected overwrite option in text.
-            - The motivation of choosing an overwrite.
+            - The selected override score.
+            - The selected override option in text.
+            - The motivation of choosing an override.
             - The lowest possible relative score for the risk driver. 
     """
     # Define column width
@@ -131,8 +131,8 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
 
     # Retrieve driver information from groupby object
     variables = riskdriver_groupby['Variable'].unique().tolist()
-    overwrites_init = riskdriver_groupby['Overwrites'].unique().tolist()
-    overwrites = ['Overwrite: '+ i for i in overwrites_init]
+    overrides_init = riskdriver_groupby['Overrides'].unique().tolist()
+    overrides = ['Override: '+ i for i in overrides_init]
 
     # Create drop down for riskdriver
     with col1:
@@ -166,34 +166,34 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, riskdriver: str, number: int) \
             score = sum(inputs)
             score_rel = score / len(variables)
             min_score_rel = min_score_rel / len(variables)
-            score_rel_text = overwrites_init[round(scored_points/max_score*(len(overwrites_init)))-1]
+            score_rel_text = overrides_init[round(scored_points/max_score*(len(overrides_init)))-1]
 
-            # Add risk driver score to top of overwrite box
-            overwrites.insert(0, score_rel_text)
+            # Add risk driver score to top of override box
+            overrides.insert(0, score_rel_text)
 
     # Create dropdown for overwriting risk driver score
     with col2:
-        overwrite = False
-        overwrite_text = st.selectbox('Overwrite', overwrites, label_visibility='collapsed')
+        override = False
+        override_text = st.selectbox('Override', overrides, label_visibility='collapsed')
         
-        # Overwrite risk score if overwrite is selected
-        if overwrite_text != score_rel_text:
-            score = overwrites.index(overwrite_text) 
-            score_rel_overwrite = score / (len(overwrites_init))
-            score_rel = convert_range(score_rel_overwrite, 1/(len(overwrites_init)), 1, min_score_rel, 1) # Scale overwrite to same range as based variables
-            score_rel_text = overwrite_text
-            overwrite = True
+        # override risk score if override is selected
+        if override_text != score_rel_text:
+            score = overrides.index(override_text) 
+            score_rel_override = score / (len(overrides_init))
+            score_rel = convert_range(score_rel_override, 1/(len(overrides_init)), 1, min_score_rel, 1) # Scale override to same range as based variables
+            score_rel_text = override_text
+            override = True
 
-    # Provide a motivation for the overwrite
+    # Provide a motivation for the override
     motivation = None
-    if overwrite:
-        motivation = st.text_area(label='Overwrite motivation', placeholder='Please motivate why you selected an overwrite for this risk driver.', key=number)
+    if override:
+        motivation = st.text_area(label='Override motivation', placeholder='Please motivate why you selected an override for this risk driver.', key=number)
         
         # Display error if no motivation is provided
         if not motivation:
             st.error('Please provide a motivation before you continue', icon="🚨")
 
-    return score_rel, score_rel_text, inputs, inputs_text, overwrite, overwrite_text, motivation, min_score_rel
+    return score_rel, score_rel_text, inputs, inputs_text, override, override_text, motivation, min_score_rel
 
 
 @st.cache_data
@@ -529,8 +529,8 @@ if __name__ == '__main__':
         for name, rd in drivers_df.groupby('Risk Driver', sort=False):
             risk_drivers.append(name)
             
-            # Create dropdown and overwrite option
-            risk, risk_text, inputs, inputs_text, overwrite, overwrite_text, motivation, min_score_rel = riskDriver(rd, name, rd_number)
+            # Create dropdown and override option
+            risk, risk_text, inputs, inputs_text, override, override_text, motivation, min_score_rel = riskDriver(rd, name, rd_number)
             
             # Apply expert weights
             weighted_risk = apply_weights(weights_df, name, risk)
@@ -545,19 +545,19 @@ if __name__ == '__main__':
             risk_scores.append(weighted_risk)
             row.extend(inputs)
             row.append(risk)
-            row.append(overwrite)
+            row.append(override)
             text_row.extend(inputs_text)
             text_row.append(risk_text)
-            text_row.append(overwrite_text)
+            text_row.append(override_text)
             text_row.append(motivation)
 
             # Store risk driver information in PDF
             variables = rd['Variable'].unique().tolist()
             pdf.cell(200, 15, txt = "Risk driver " + str(rd_number) + ": " + name, ln = 1, align = 'L', )
             pdf.set_font("Arial", size = 12)
-            if overwrite: 
-                pdf.cell(200, 10, txt = overwrite_text, ln = 1, align = 'L')
-                pdf.cell(200, 10, txt = 'Overwrite motivation: ' + motivation, ln = 1, align = 'L')
+            if override: 
+                pdf.cell(200, 10, txt = override_text, ln = 1, align = 'L')
+                pdf.cell(200, 10, txt = 'override motivation: ' + motivation, ln = 1, align = 'L')
             else:
                 for n, i in enumerate(inputs_text):
                     pdf.multi_cell(200, 5, txt = variables[n]  + ':', align = 'L')
@@ -655,9 +655,9 @@ if __name__ == '__main__':
                     examples of how to rate a company. """
         ) 
 
-        st.markdown("""**Overwrite risk score**: If you are unsure about how to rate the \
-                    variables, it is possible to provide an overwrite for the risk driver \
-                    score. This overwrite replaces the score determined using the separate variables, \
+        st.markdown("""**override risk score**: If you are unsure about how to rate the \
+                    variables, it is possible to provide an override for the risk driver \
+                    score. This override replaces the score determined using the separate variables, \
                     which is displayed as the first option in the selection box.""")
 
         st.markdown("**Circular risk score**: The form will show the determined circular risk score,\
