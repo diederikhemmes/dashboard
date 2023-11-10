@@ -443,7 +443,7 @@ if __name__ == '__main__':
     # Scorecard title
     st.title('Circular Risk Scorecard')
 
-    st.caption("version: " + version)
+    st.subheader("version: " + version)
 
     # Create dashboard tabs
     tab1, tab2, tab3, tab4 = st.tabs(["Scorecard", "Read before use", "Peak extraction years", "Distribution of expert weights"])
