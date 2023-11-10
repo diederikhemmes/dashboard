@@ -23,21 +23,21 @@ import tempfile
 # from pathlib import path
 import streamlit_authenticator as stauth
 
-users = ['diederik', 'jeroen']
-ids = ['dh', 'jj']
-pws = ['01', '02']
+# users = ['diederik', 'jeroen']
+# ids = ['dh', 'jj']
+# pws = ['01', '02']
 
-authenticator = stauth.Authenticate(users, ids, pws, 'riskscorecard', 'cookieref', cookie_expiry_days=1)
+# authenticator = stauth.Authenticate(users, ids, pws, 'riskscorecard', 'cookieref', cookie_expiry_days=1)
 
-name, authentication_status, username = authenticator.login("Login", "main")
+# name, authentication_status, username = authenticator.login("Login", "main")
 
-if authentication_status == False:
-    st.error('Username/password is incorrect')
+# if authentication_status == False:
+#     st.error('Username/password is incorrect')
 
-if authentication_status == None:
-    st.error('Please enter your username and password')
+# if authentication_status == None:
+#     st.error('Please enter your username and password')
 
-if authentication_status == True:
+# if authentication_status == True:
 
     @st.cache_data
     def load_images(image_path: str) -> None:
