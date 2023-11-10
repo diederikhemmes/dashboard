@@ -438,12 +438,13 @@ def stacked_bar_chart(data: list[float], labels: list[str]) -> None:
 #### main ##################################################################################################
 if __name__ == '__main__':
 
+    version = '0.95'
     col1, col2 = st.columns([4,1])
     with col1:
         # Scorecard title
         st.title('Circular Risk Scorecard')
     with col2:
-        st.text('version 0.95')
+        st.text(version)
 
     # Create dashboard tabs
     tab1, tab2, tab3, tab4 = st.tabs(["Scorecard", "Read before use", "Peak extraction years", "Distribution of expert weights"])
@@ -472,7 +473,7 @@ if __name__ == '__main__':
     # Obtain general information
     date = datetime.datetime.now(tz=pytz.timezone('Europe/Amsterdam')).date()
     time = datetime.datetime.now(tz=pytz.timezone('Europe/Amsterdam')).time().replace(microsecond=0)
-    version = 'v0.61'
+    
 
     # Lists of banks 
     banks = ['ABN AMRO', 'Rabobank', 'ING', 'Other']
