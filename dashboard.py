@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from fpdf import FPDF
 import tempfile
-from pathlib import path
+# from pathlib import path
 import streamlit_authenticator as stauth
 
 users = ['diederik', 'jeroen']
