@@ -120,8 +120,8 @@ def load_peak_data(filepath_peaks: str) -> pd.DataFrame:
     return peaks_df
 
     
-def riskDriver(riskdriver_groupby: pd.DataFrame, rd_calc: pd.DataFrame, riskdriver: str, number: int) \
-    -> tuple[float, str, list[float], list[str], float, str, str, float]:
+def riskDriver(riskdriver_groupby: pd.DataFrame, rd_calc: pd.DataFrame, riskdriver: str, number: int, data_dict: dict) \
+    -> tuple[float, str, list[float], list[str], float, str, str, float, dict]:
     """
     Calculate risk driver scores and provide user interface for customization.
 
@@ -204,6 +204,10 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, rd_calc: pd.DataFrame, riskdriv
                     # min_score_rel += 1 / len(options)
                     min_score_rel += 0
 
+                data_dict[v[0:3] + '_text'] = choice
+                data_dict[v[0:3] + '_score'] = v_score
+                data_dict[v[0:3] + '_relscore'] = v_score_rel
+
 
 
             if riskdriver in (riskdrivers_calc):
@@ -221,6 +225,7 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, rd_calc: pd.DataFrame, riskdriv
                 score = 0
                 score_rel = 0
                 min_score_rel = 0
+
 
     # Create dropdown for overwriting risk driver score
     with col2:
@@ -253,7 +258,13 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, rd_calc: pd.DataFrame, riskdriv
         if not motivation:
             st.error('Please provide a motivation before you continue', icon="🚨")
 
-    return score_rel, score_rel_text, inputs, inputs_text, override, override_text, motivation, min_score_rel
+    data_dict[str(number) + '_override'] = override
+    data_dict[str(number) + '_override_motivation'] = motivation
+    data_dict[str(number) + '_totalscore'] = score
+    data_dict[str(number) + '_totalrelscore'] = score_rel
+    data_dict[str(number) + '_text'] = score_rel_text
+
+    return score_rel, score_rel_text, inputs, inputs_text, override, override_text, motivation, min_score_rel, data_dict
 
 
 @st.cache_data
@@ -500,6 +511,18 @@ def stacked_bar_chart(data: list[float], labels: list[str]) -> None:
 #### main ##################################################################################################
 if __name__ == '__main__':
 
+    data_dict = {}
+    # dict = {'key1':'geeks', 'key2':'for'} 
+    # print("Current Dict is: ", dict) 
+    
+    # # using the subscript notation 
+    # # Dictionary_Name[New_Key_Name] = New_Key_Value 
+    
+    # dict['key3'] = 'Geeks'
+    # dict['key4'] = 'is'
+    # dict['key5'] = 'portal'
+    # dict['key6'] = 'Computer'
+
     version = '0.96'
 
     # Scorecard title
@@ -542,6 +565,11 @@ if __name__ == '__main__':
     # list of business models
     business_models = ['Resource recovery (material sales model)', 'Circular supplies (product sales model)', 'Product life-time extension (service sales model)', 'Product as a Service', 'Sharing platforms', 'Other']
 
+    data_dict['Date'] = date
+    data_dict['Time'] = time
+    data_dict['version'] = version
+
+
 #####################################################################################  
 # Scorecard tab
 #####################################################################################  
@@ -576,6 +604,11 @@ if __name__ == '__main__':
         row = [str(date), str(time), version, chosen_businessmodel, user, client_company]
         text_row = [] # Row for storing variable selections in text format
         info_columns = len(row)
+
+        data_dict['Institution'] = chosen_bank
+        data_dict['User'] = user
+        data_dict['Client_company'] = client_company
+        data_dict['BusinessModel'] = chosen_businessmodel
 
         # Set up PDF for storing input
         pdf = FPDF()
@@ -615,7 +648,6 @@ if __name__ == '__main__':
         weights_df['Weight_adj'] = 0
         # weights_df[weights_df['Risk Factor'].isin(riskdrivers_calc)]['Weight_adj'] = weights_df['Weight']/sum(weights_df[weights_df['Risk Factor'].isin(riskdrivers_calc)]['Weight'])
         weights_df.loc[weights_df['Risk Factor'].isin(riskdrivers_calc), 'Weight_adj'] = weights_df['Weight']/sum(weights_df[weights_df['Risk Factor'].isin(riskdrivers_calc)]['Weight'])
-        print(weights_df)
 
         # Create dropdown for each risk driver
         rd_number = 1
@@ -631,7 +663,8 @@ if __name__ == '__main__':
             rd_calc = drivers_df_calc
             
             # Create dropdown and override option
-            risk, risk_text, inputs, inputs_text, override, override_text, motivation, min_score_rel = riskDriver(rd, rd_calc, name, rd_number)
+            risk, risk_text, inputs, inputs_text, override, override_text, motivation, min_score_rel, data_dict = riskDriver(rd, rd_calc, name, rd_number, data_dict)
+            print(data_dict)
 
             # Apply expert weights
             weighted_risk = apply_weights(weights_df, name, risk)
@@ -725,6 +758,8 @@ if __name__ == '__main__':
         row.insert(info_columns+1, internal_score)
         row.extend([finance_weight, risk_weight, invest_weight, busdev_weight])
 
+
+
         # Store circular risk score to PDF
         pdf.set_font("Arial", size = 20)
         pdf.cell(200, 30, txt = 'Final Circular Risk Score: ' + str(round(normalized_final_score)) + ' / 100', ln = 1, align = 'C')
@@ -759,16 +794,34 @@ if __name__ == '__main__':
         # if send:    
         #     st.success('Risk score submitted!')
         #     sh.sheet1.append_row(row)
+            
+
+        data_dict['finance_weight'] = finance_weight
+        data_dict['risk_weight'] = risk_weight
+        data_dict['invest_weight'] = invest_weight
+        data_dict['busdev_weight'] = busdev_weight
+        data_dict['ondernemers_weight'] = ondernemers_weight
+
+
+        data_dict['Final_score'] = final_score
+        data_dict['Final_score_normalized'] = normalized_final_score
+        data_dict['feedback_score'] = feedback_score
+        data_dict['feedback_drivers'] = feedback_drivers
+        data_dict['feedback_UI'] = feedback_UI
+        data_dict['feedback_open'] = feedback_open
+        data_dict['test_run'] = test
 
 
         # initializing lists
-        colnames = ['col_' + str(i) for i in range(len(row))]
-        # colnames = ['col1','col2','col3']
-        test_values = row
+        # colnames = ['col_' + str(i) for i in range(len(row))]
+        colnames = [key for key in data_dict.keys()]
+        print(colnames)
+        colvalues = [val for val in data_dict.values()]
         
         # using dictionary comprehension
         # to convert lists to dictionary
-        mydict2 = [{colnames[i]: row[i] for i in range(len(colnames))}]
+        # mydict2 = [{colnames[i]: row[i] for i in range(len(colnames))}]
+        # mydict2 = [data_dict]
 
 
 
@@ -777,7 +830,8 @@ if __name__ == '__main__':
         # mydict2 = [{'Date':date, 'Time':time, 'Version':version, 'client_company':client_company, 'user':user}]
         
                 # field names
-        fields = colnames
+        fields = colnames 
+
         
         # name of csv file
         filename = "university_records.csv"
@@ -791,7 +845,7 @@ if __name__ == '__main__':
             writer.writeheader()
         
             # writing data rows
-            writer.writerows(mydict2)
+            writer.writerows([data_dict])
 
 
         import email
