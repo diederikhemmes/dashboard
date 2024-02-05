@@ -17,6 +17,7 @@ from PIL import Image
 import gspread
 from google.oauth2 import service_account
 import matplotlib.pyplot as plt
+from matplotlib import colormaps
 import numpy as np
 from fpdf import FPDF
 import tempfile
@@ -172,7 +173,12 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, rd_calc: pd.DataFrame, riskdriv
                     options = riskdriver_groupby[riskdriver_groupby['Variable']==v]['Answers'].tolist()
                     examples = riskdriver_groupby[riskdriver_groupby['Variable']==v]['Example'].tolist()
 
+                    print(v)
+                    # print(options)
+                    # print(examples)
+
                     string = generate_help(options, examples)
+                    print(string)
                     choice = st.selectbox(v, options, help=string)
 
                     # Determine risk score for variable (v)
@@ -245,9 +251,6 @@ def riskDriver(riskdriver_groupby: pd.DataFrame, rd_calc: pd.DataFrame, riskdriv
         else:
             st.write('not applicable for selected business model')
             override_text = 'not applicable for selected business model'
-
-    # print(score)
-    print(score_rel)
 
     # Provide a motivation for the override
     motivation = None
@@ -485,9 +488,12 @@ def stacked_bar_chart(data: list[float], labels: list[str]) -> None:
     Returns:
         None
     """
+
     # Plotting the bar chart 
     # plt.style.use('tableau-colorblind10')   
     plt.style.use('seaborn-v0_8-muted')   
+
+    
     fig, ax = plt.subplots(figsize=(8, 2))
     left = np.zeros(len(labels))
     for i, value in enumerate(data):
@@ -504,6 +510,7 @@ def stacked_bar_chart(data: list[float], labels: list[str]) -> None:
 
     # Show figure in dashboard
     st.pyplot(fig)
+
 
     return
 
@@ -523,7 +530,7 @@ if __name__ == '__main__':
     # dict['key5'] = 'portal'
     # dict['key6'] = 'Computer'
 
-    version = '0.96'
+    version = '1.0'
 
     # Scorecard title
     st.title('Circular Risk Scorecard')
@@ -664,7 +671,6 @@ if __name__ == '__main__':
             
             # Create dropdown and override option
             risk, risk_text, inputs, inputs_text, override, override_text, motivation, min_score_rel, data_dict = riskDriver(rd, rd_calc, name, rd_number, data_dict)
-            print(data_dict)
 
             # Apply expert weights
             weighted_risk = apply_weights(weights_df, name, risk)
@@ -716,7 +722,7 @@ if __name__ == '__main__':
             
 
 
-        st.header('Determine final Circular Risk score')
+        st.header('Final Circular Risk Score')
         
         # Determine final score and convert in on scale 0 to 100
         final_score = sum(risk_scores)
@@ -727,7 +733,7 @@ if __name__ == '__main__':
         # Display final circular risk score 
         col1, col2 = st.columns([3,2])
         with col1:
-            st.metric('Circular Risk score (low score = low risk): ', str(round(normalized_final_score)) + ' / 100')
+            st.metric('Circular Risk Score (low score = low risk): ', str(round(normalized_final_score)) + ' / 100')
             st.progress(round(normalized_final_score, 1)/100)
 
         # Request internal PD
@@ -767,7 +773,7 @@ if __name__ == '__main__':
         st.header('Feedback and submit')
 
         # Request feedback and store in row for sheet
-        feedback_score = st.text_area('Circular Risk Score', placeholder="Does the Circularity Risk Score match with your expectations of the risk of this company? How does it compare with the internal PD? Would you, based on the outcome from this scorecard, adjust the PD?")
+        feedback_score = st.text_area('Circular Risk Score', placeholder="Does the Circularity Risk Score match with your expectations of the risk of this company?")
         feedback_drivers = st.text_area('Risk Drivers', placeholder="Are there any risk drivers that you missed when filling in the scorecard?")
         feedback_UI = st.text_area('User-friendliness', placeholder="How easy was it to understand and fill in the scorecard?")
         feedback_open = st.text_area('Other feedback', placeholder='Please provide here any other feedback.')
@@ -815,7 +821,7 @@ if __name__ == '__main__':
         # initializing lists
         # colnames = ['col_' + str(i) for i in range(len(row))]
         colnames = [key for key in data_dict.keys()]
-        print(colnames)
+
         colvalues = [val for val in data_dict.values()]
         
         # using dictionary comprehension
@@ -856,7 +862,7 @@ if __name__ == '__main__':
         import mimetypes
 
 
-        send = st.button("Submit via mail")
+        send = st.button("Submit scorecard data")
         if send:    
 
             from_addr = "circularriskscorecard@outlook.com"
@@ -898,35 +904,36 @@ if __name__ == '__main__':
 #####################################################################################  
     with tab2:
         st.header('Background')
-        st.markdown("""This dashboard outputs a circular risk score given input parameters corresponding \
-                    to a circular economy company. This score can be used as a decision factor in deciding \
-                    which circular economy deals are accepted or rejected by, for example, banks. In addition, \
-                    the dashboard can give insight into which risk factors are important in making these kinds \
-                    of decisions. """)
+        st.markdown("""This dashboard outputs a circular risk score given input parameters\
+                     corresponding to a circular economy company. This score can be used\
+                     as a decision factor in deciding which circular economy deals are \
+                    accepted or rejected. In addition, the dashboard can give insight into\
+                     which risk factors are important in making these kinds of decisions. \
+                    Please read the Circular Risk Score – a practical guide for more background information. """)
 
         st.header('Instructions')
         st.markdown('**Names**: It is possible to use dummy names for the \'filled \
                     in by\' and \'filled in for\' fields.')
         
-        st.markdown("**Expert weights**: Different groups of experts distributed points over \
-                    the different risk drivers. It is possible to select expert groups to weight \
-                    the circular score. The weight distribution is visualized in the \
-                    \'Distribution of expert weights\' tab."
+        st.markdown("**Expert weights**: Different groups of experts distributed points over\
+                    the different risk drivers. The weight distribution over the different \
+                    risk drivers is visualized in the \'Distribution of expert weights\' tab.\
+                    The score is built up with average weights from all expert groups."
         ) 
     
         st.markdown("""**Scoring risk drivers**: The scorecard contains six risk drivers, \
-                    each with multiple variables. Place your mouse on the question mark icon for \
-                    examples of how to rate a company. """
+                    each with multiple variables. Place your mouse on the question mark \
+                    icon for examples of how to rate a company. """
         ) 
 
-        st.markdown("""**override risk score**: If you are unsure about how to rate the \
-                    variables, it is possible to provide an override for the risk driver \
-                    score. This override replaces the score determined using the separate variables, \
-                    which is displayed as the first option in the selection box.""")
+        st.markdown("""**Override risk score**: If you are unsure about how to rate\
+                    the variables, it is possible to provide an override for the\
+                    risk driver score. This override replaces the score determined using \
+                    the separate variables, which is displayed as the first option\
+                    in the selection box""")
 
-        st.markdown("**Circular risk score**: The form will show the determined circular risk score,\
-                    which lies between 0 (no risk) and 100 (high risk). Please fill in your \
-                    internal Probability of Default for comparison.")
+        st.markdown("**Circular risk score**: The form will show the determined \
+                    circular risk score, which lies between 0 (low risk) and 100 (high risk).")
 
 #####################################################################################  
 # Peak Extraction Year tab
@@ -954,6 +961,10 @@ if __name__ == '__main__':
 
 #####################################################################################   
             
+#####################################################################################  
+# Business models tab
+#####################################################################################  
+            
         with tab5:
             st.header('Background on Circular Business Models')
             st.markdown("""The five circular business are derived from the Circular Economy Finance Guidelines (2018) - link: 
@@ -969,12 +980,12 @@ if __name__ == '__main__':
                         An example is BE O lifestyle, that produces products such as reusable cups from bio-based materials (plants), \
                         which are fabricated by people with an occupational disability.')
             
-            st.markdown('**Product life-time extension (service sales model)**: Services to extend the life-time of a \
-                        product (e.g. repairing, refurbishing). An example are bicycle repair shops.')
+            st.markdown('**Product life-time extension (service sales model)**: Services to extend the lifetime of a \
+                        product (e.g. repairing, refurbishing). An example is a bicycle repair shop.')
             
-            st.markdown('**Product as a Service**: Businesses that sell the output of the product according to the unit of use \
-                        (e.g. per washing cycle) or the result (e.g. clean laundry). Examples are wash-as-a-service (Bundles),\
-                         flowers-as-a-services (Reflower) and kitchen-as-a-service (Chainable).')
+            st.markdown('**Product as a Service**: Businesses that sell the output of the product according to the unit of use\
+                         (e.g. per washing cycle) or the result (e.g. clean laundry). Examples are wash-as-a-service (Bundles), \
+                        flowers-as-a-service (Reflower) and kitchen-as-a-service (Chainable).')
             
             st.markdown('**Sharing platforms**: A platform to share products between multiple users. \
                         An example is MyWheels, which shares electrical cars.')
