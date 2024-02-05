@@ -570,7 +570,7 @@ if __name__ == '__main__':
     banks = ['ABN AMRO', 'Rabobank', 'ING', 'Other']
 
     # list of business models
-    business_models = ['Resource recovery (material sales model)', 'Circular supplies (product sales model)', 'Product life-time extension (service sales model)', 'Product as a Service', 'Sharing platforms', 'Other']
+    business_models = ['Product as a Service', 'Resource recovery (material sales model)', 'Circular supplies (product sales model)', 'Product life-time extension (service sales model)', 'Sharing platforms', 'Other']
 
     data_dict['Date'] = date
     data_dict['Time'] = time
