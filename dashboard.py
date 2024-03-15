@@ -14,32 +14,12 @@ import pandas as pd
 import datetime
 import pytz 
 from PIL import Image
-import gspread
-from google.oauth2 import service_account
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 import numpy as np
 from fpdf import FPDF
 import tempfile
 import openpyxl
-# from pathlib import path
-# import streamlit_authenticator as stauth
-
-# users = ['diederik', 'jeroen']
-# ids = ['dh', 'jj']
-# pws = ['01', '02']
-
-# authenticator = stauth.Authenticate(users, ids, pws, 'riskscorecard', 'cookieref', cookie_expiry_days=1)
-
-# name, authentication_status, username = authenticator.login("Login", "main")
-
-# if authentication_status == False:
-#     st.error('Username/password is incorrect')
-
-# if authentication_status == None:
-#     st.error('Please enter your username and password')
-
-# if authentication_status == True:
 
 @st.cache_data
 def load_images(image_path: str) -> None:
@@ -540,27 +520,6 @@ if __name__ == '__main__':
     # Create dashboard tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["Scorecard", "Read me", "Peak extraction years", "Distribution of expert weights", "Circular Business Models"])
 
-    # Set up the scope and credentials to Google Sheet
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-        ],
-    )
-
-    # Sheet link name in secrets.toml
-    sheet = 'sheet_url' 
-
-    # Try to open Google Sheet
-    try:
-        client = gspread.authorize(credentials)
-        sheets_url = st.secrets[sheet]
-        sh = client.open_by_url(sheets_url)
-
-    # Display error if opening sheet fails
-    except:
-        st.error('Please check your internet connection. If this is not the issue, the connection to the sheet is lost.', icon="🚨")
-
     # Obtain general information
     date = datetime.datetime.now(tz=pytz.timezone('Europe/Amsterdam')).date()
     time = datetime.datetime.now(tz=pytz.timezone('Europe/Amsterdam')).time().replace(microsecond=0)
@@ -707,19 +666,7 @@ if __name__ == '__main__':
                 pdf.cell(200, 10, txt='Risk Driver score: ' + risk_text , ln = 1, align = 'L')
             pdf.set_font("Arial", size = 14)
                 
-            rd_number += 1
-            
-            # else:
-            #     risk, risk_text, inputs, inputs_text, override, override_text, motivation, min_score_rel = 'NA'
-
-            #     row.extend(inputs)
-            #     row.append(risk)
-            #     row.append(override)
-            #     text_row.extend(inputs_text)
-            #     text_row.append(risk_text)
-            #     text_row.append(override_text)
-            #     text_row.append(motivation)
-            
+            rd_number += 1            
 
 
         st.header('Final Circular Risk Score')
@@ -743,18 +690,12 @@ if __name__ == '__main__':
         
 
         riskdrivers_calc = drivers_df_calc['Risk Driver'].unique().tolist()
-        # print(risk_drivers)
-
-        # index_riskdrivers = risk_drivers.index(riskdrivers_calc)
 
         indices = [i for i, e in enumerate(risk_drivers) if e in riskdrivers_calc]
-        # print(indices)
-
 
         plot_riskdrivers = [risk_drivers[i] for i in indices]
-        # print(plot_riskdrivers)
+
         plot_points = [point_list[i] for i in indices]
-        # print(plot_points)
 
         # Show stacked bar chart of circular risk score build-up
         stacked_bar_chart(plot_points, plot_riskdrivers)
@@ -794,12 +735,6 @@ if __name__ == '__main__':
             pdf.output(tf.name)
         with open(tf.name, "rb") as f:
             st.download_button(label='Download scorecard as PDF', data=f.read(), file_name=client_company+' scorecard.pdf', mime='text/csv')
-
-        # # Create button to submit data to google sheet
-        # send = st.button("Submit")
-        # if send:    
-        #     st.success('Risk score submitted!')
-        #     sh.sheet1.append_row(row)
             
 
         data_dict['finance_weight'] = finance_weight
@@ -823,26 +758,17 @@ if __name__ == '__main__':
         colnames = [key for key in data_dict.keys()]
 
         colvalues = [val for val in data_dict.values()]
-        
-        # using dictionary comprehension
-        # to convert lists to dictionary
-        # mydict2 = [{colnames[i]: row[i] for i in range(len(colnames))}]
-        # mydict2 = [data_dict]
-
-
 
         import csv
         
-        # mydict2 = [{'Date':date, 'Time':time, 'Version':version, 'client_company':client_company, 'user':user}]
-        
-                # field names
+        # field names
         fields = colnames 
 
         
         # name of csv file
         filename = "university_records.csv"
 
-            # writing to csv file
+        # writing to csv file
         with open(filename, 'w', newline='') as csvfile:
             # creating a csv dict writer object
             writer = csv.DictWriter(csvfile, fieldnames=fields, delimiter=';')
@@ -860,7 +786,42 @@ if __name__ == '__main__':
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
         import mimetypes
+        import os
+        from github import Github
+        from io import StringIO
 
+        # Define function to commit and push changes to GitHub
+        def git_push(content, filename = "records_all.csv"):
+            
+            access_token = st.secrets["github_login"]["access_token"]
+            g = Github(access_token)
+            repo = g.get_repo(st.secrets["github_login"]["repo"])
+            branch = st.secrets["github_login"]["branch"]
+
+            # Fetch the current CSV file content
+            file = repo.get_contents(filename, ref=branch)
+            file_content = file.decoded_content.decode('utf-8')
+            csv_file = StringIO(file_content)
+            csv_reader = list(csv.reader(csv_file))
+
+            # Append the new row to the CSV content
+            csv_reader.append(content)
+
+            # Convert the updated CSV content back to a string
+            new_csv_content = StringIO()
+            csv_writer = csv.writer(new_csv_content)
+            csv_writer.writerows(csv_reader)
+            new_csv_content = new_csv_content.getvalue()
+
+            # Update the file on GitHub
+            commit_message = "Added new data to the CSV file."
+            repo.update_file(file.path, commit_message, new_csv_content, file.sha, branch=branch)
+            print(f"Successfully updated '{filename}' with new data.")
+
+        send_csv = st.button("Submit scorecard data to csv")
+        if send_csv:
+            git_push(data_dict.values(), "records_all.csv")
+            st.success('Data submitted successfully!')
 
         send = st.button("Submit scorecard data")
         if send:    
