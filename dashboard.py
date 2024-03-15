@@ -14,8 +14,8 @@ import pandas as pd
 import datetime
 import pytz 
 from PIL import Image
-import gspread
-from google.oauth2 import service_account
+# import gspread
+# from google.oauth2 import service_account
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 import numpy as np
@@ -540,26 +540,26 @@ if __name__ == '__main__':
     # Create dashboard tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["Scorecard", "Read me", "Peak extraction years", "Distribution of expert weights", "Circular Business Models"])
 
-    # Set up the scope and credentials to Google Sheet
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-        ],
-    )
+    # # Set up the scope and credentials to Google Sheet
+    # credentials = service_account.Credentials.from_service_account_info(
+    #     st.secrets["gcp_service_account"],
+    #     scopes=[
+    #         "https://www.googleapis.com/auth/spreadsheets",
+    #     ],
+    # )
 
-    # Sheet link name in secrets.toml
-    sheet = 'sheet_url' 
+    # # Sheet link name in secrets.toml
+    # sheet = 'sheet_url' 
 
-    # Try to open Google Sheet
-    try:
-        client = gspread.authorize(credentials)
-        sheets_url = st.secrets[sheet]
-        sh = client.open_by_url(sheets_url)
+    # # Try to open Google Sheet
+    # try:
+    #     client = gspread.authorize(credentials)
+    #     sheets_url = st.secrets[sheet]
+    #     sh = client.open_by_url(sheets_url)
 
-    # Display error if opening sheet fails
-    except:
-        st.error('Please check your internet connection. If this is not the issue, the connection to the sheet is lost.', icon="🚨")
+    # # Display error if opening sheet fails
+    # except:
+    #     st.error('Please check your internet connection. If this is not the issue, the connection to the sheet is lost.', icon="🚨")
 
     # Obtain general information
     date = datetime.datetime.now(tz=pytz.timezone('Europe/Amsterdam')).date()
@@ -860,6 +860,44 @@ if __name__ == '__main__':
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
         import mimetypes
+
+        import os
+        from github import Github
+        from io import StringIO
+
+        # Define function to commit and push changes to GitHub
+        def git_push(content, filename = "records_all.csv"):
+            
+            access_token = st.secrets["github_login"]["access_token"]
+            g = Github(access_token)
+            repo = g.get_repo(st.secrets["github_login"]["repo"])
+            branch = st.secrets["github_login"]["branch"]
+
+            # Fetch the current CSV file content
+            file = repo.get_contents(filename, ref=branch)
+            file_content = file.decoded_content.decode('utf-8')
+            csv_file = StringIO(file_content)
+            csv_reader = list(csv.reader(csv_file))
+
+            # Append the new row to the CSV content
+            csv_reader.append(content)
+
+            # Convert the updated CSV content back to a string
+            new_csv_content = StringIO()
+            csv_writer = csv.writer(new_csv_content)
+            csv_writer.writerows(csv_reader)
+            new_csv_content = new_csv_content.getvalue()
+
+            # Update the file on GitHub
+            commit_message = "Added new data to the CSV file."
+            repo.update_file(file.path, commit_message, new_csv_content, file.sha, branch=branch)
+            print(f"Successfully updated '{filename}' with new data.")
+            
+        send_csv = st.button("Submit scorecard data to csv")
+        if send_csv:
+
+            git_push(data_dict.values(), "records_all.csv")
+            st.success('Data submitted successfully!')
 
 
         send = st.button("Submit scorecard data")
