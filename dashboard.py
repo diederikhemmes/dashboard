@@ -895,9 +895,13 @@ if __name__ == '__main__':
             
         send_csv = st.button("Submit scorecard data to csv")
         if send_csv:
+            try:
+                git_push(data_dict.values(), "records_all.csv")
+                st.success('Data submitted successfully to csv!')
+            except:
+                st.text('Try submitting again!')
 
-            git_push(data_dict.values(), "records_all.csv")
-            st.success('Data submitted successfully!')
+            # st.success('Data submitted successfully!')
 
 
         send = st.button("Submit scorecard data")
